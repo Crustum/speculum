@@ -1,0 +1,21 @@
+includes:
+    - phpstan-baseline.neon
+
+parameters:
+    level: 7
+    paths:
+        - src
+    bootstrapFiles:
+        - tests/bootstrap.php
+    tmpDir: build/phpstan
+    ignoreErrors:
+        -
+            identifier: new.static
+            reportUnmatched: false
+        -
+            message: '#Crustum\\BlazeCast\\#'
+            path: src/Watcher/*
+            reportUnmatched: false
+            # Soft BlazeCast watchers until crustum/blazecast is a published require-dev dep.
+
+services:

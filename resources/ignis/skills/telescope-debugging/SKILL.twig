@@ -1,0 +1,26 @@
+---
+name: speculum-debugging
+description: "Debug CakePHP apps with Speculum MCP (cake-speculum). Use when investigating runtime failures, slow queries, failed jobs, request stories, or recorded exceptions via speculum_search and speculum_entry. Complements Ignis (schema/routes/config/tinker) — do not use Speculum MCP for those."
+license: MIT
+metadata:
+  author: crustum
+---
+# Speculum Debugging
+
+Speculum records runtime activity. The separate MCP server `cake-speculum` exposes **two tools only** — keep context small.
+
+Prefer package `docs/index.md`. Start the server with `bin/cake speculum mcp` (or `bin/cake mcp start cake-speculum`).
+
+## Tools
+
+1. `speculum_search` — filtered **summaries** (`type`, `tag`, `batch_id`, `family_hash`, `since_sequence`, `limit`). Response includes `meta.recording` and `meta.available_watchers`.
+2. `speculum_entry` — one entry by `uuid`; optional `expand=batch|family` for related **summaries**.
+
+## Workflows
+
+- Latest exception: `speculum_search` with `type=exception`, `limit=1`, then `speculum_entry` on that uuid (`expand=batch` for the request story).
+- Request story: search or entry → take `batch_id` → `speculum_search` with `batch_id`, or `speculum_entry` with `expand=batch`.
+- Checkpoint: note a `sequence`, change code, hit the app, then `speculum_search` with `since_sequence`.
+- Slow queries / failed jobs / client errors: `speculum_search` with `type=query|job|http_client` and inspect labels; open details with `speculum_entry`.
+
+Do **not** clear entries or toggle recording via MCP. Use Ignis for schema, routes, config, file logs, and tinker.

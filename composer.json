@@ -1,0 +1,110 @@
+{
+    "name": "crustum/speculum",
+    "description": "CakePHP Speculum, debug assistant for your CakePHP application",
+    "type": "cakephp-plugin",
+    "license": "MIT",
+    "keywords": [
+        "cakephp",
+        "speculum",
+        "debugging",
+        "monitoring"
+    ],
+    "authors": [
+        {
+            "name": "Evgeny Tomenko",
+            "homepage": "https://github.com/skie"
+        }
+    ],
+    "require": {
+        "php": ">=8.2",
+        "cakephp/cakephp": "^5.2",
+        "crustum/mcp": "dev-main",
+        "crustum/plugin-manifest": "^1.0",
+        "symfony/polyfill-php84": "^1.31",
+        "symfony/var-dumper": "^7.0|^8.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5 || ^11.1 || ^12.5",
+        "cakephp/cakephp-codesniffer": "^5.0",
+        "cakephp/migrations": "^5.0",
+        "cakephp/queue": "^2.0",
+        "crustum/essentia": "^1.0",
+        "crustum/notification": "^1.0",
+        "crustum/batch-queue": "^1.1",
+        "crustum/broadcasting": "^1.3",
+        "phpstan/phpstan": "^2.0",
+        "rector/rector": "^2.5"
+    },
+    "suggest": {
+        "cakephp/queue": "Enable cakephp/queue JobWatcher consume path and Speculum pending-update transport",
+        "crustum/batch-queue": "Enable batch watcher",
+        "crustum/notification": "Enable notification watcher",
+        "crustum/cakephp-scheduling": "Enable schedule watcher",
+        "crustum/broadcasting": "Soft broadcast tags on events",
+        "crustum/blazecast": "Enable blazecast watcher",
+        "josegonzalez/cakephp-queuesadilla": "Enable Queuesadilla job watcher and Speculum pending-update transport",
+        "crustum/cakephp-queue": "Enable Crustum/Queue.Job.pushed produce recording on JobWatcher",
+        "dereuromark/cakephp-queue": "Enable Dereuromark Queue.Job.* job watcher and Speculum pending-update transport",
+        "ext-mongodb": "Enable soft MongoDB command watcher (CommandSubscriber APM)",
+        "crustum/speculum-mongo": "Demo extension panel for Mongo (optional; core soft watcher preferred)"
+    },
+    "autoload": {
+        "psr-4": {
+            "Crustum\\Speculum\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Crustum\\Speculum\\Test\\": "tests/",
+            "TestApp\\": "tests/TestApp/",
+            "DebugKit\\Model\\Entity\\": "tests/stubs/DebugKit/Model/Entity/",
+            "MongoDB\\Driver\\Monitoring\\": "tests/stubs/MongoDB/Driver/Monitoring/",
+            "Queue\\Model\\Entity\\": "tests/stubs/Queue/Model/Entity/",
+            "Queue\\Queue\\": "tests/stubs/Queue/Queue/"
+        },
+        "files": [
+            "tests/stubs/MongoDB/Driver/Monitoring/functions.php"
+        ]
+    },
+    "scripts": {
+        "check": [
+            "@cs-check",
+            "@rector-check",
+            "@test",
+            "@analyse"
+        ],
+        "fix": [
+            "@cs-fix",
+            "@rector-fix",
+            "@cs-fix",
+            "@analyse"
+        ],
+        "analyse": [
+            "@stan"
+        ],
+        "cs-check": "phpcs -p --standard=phpcs.xml src/ tests/",
+        "cs-fix": "phpcbf --standard=phpcs.xml src/ tests/",
+        "test": "phpunit",
+        "test:unit": "phpunit --testsuite=Unit",
+        "test:integration": "phpunit --testsuite=Integration",
+        "frontend:build": "npm --prefix resources/frontend run build",
+        "frontend:lint": "npm --prefix resources/frontend run lint",
+        "frontend:test": "npm --prefix resources/frontend run test",
+        "rector-check": "vendor/bin/rector process --dry-run",
+        "rector-fix": "vendor/bin/rector process",
+        "stan": "phpstan analyse src/",
+        "stan-baseline": "phpstan analyse --generate-baseline"
+    },
+    "extra": {
+        "installer-name": "Speculum"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "cakephp/plugin-installer": true,
+            "php-http/discovery": false
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

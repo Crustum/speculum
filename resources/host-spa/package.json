@@ -1,0 +1,9 @@
+{
+    "name": "speculum-host-spa",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "node ./build.mjs",
+        "watch": "node ./build.mjs --watch"
+    }
+}
