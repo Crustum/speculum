@@ -160,8 +160,8 @@ class ProcessPendingUpdatesJobTest extends TestCaseBase
     {
         $failedUpdate = new EntryUpdate('missing-uuid', EntryType::Job->value, ['status' => 'processed']);
 
-        /** @var \Crustum\Speculum\Contract\EntriesRepository&\PHPUnit\Framework\MockObject\MockObject $repository */
-        $repository = $this->createMock(EntriesRepository::class);
+        /** @var \Crustum\Speculum\Contract\EntriesRepository&\PHPUnit\Framework\Stub\Stub $repository */
+        $repository = $this->createStub(EntriesRepository::class);
         $repository->method('update')->willReturn([$failedUpdate]);
         Speculum::setRepository($repository);
 

@@ -48,6 +48,10 @@ final class WorkerFlushPolicy
         self::$batchStack[] = $batchId;
         Speculum::setRecordingBatchId($batchId);
         self::$processingJobs[] = true;
+
+        if (self::$lastFlushAt === null) {
+            self::$lastFlushAt = microtime(true);
+        }
     }
 
     /**

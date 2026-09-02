@@ -3,13 +3,10 @@ declare(strict_types=1);
 
 namespace Crustum\Speculum\Test\TestCase\Watcher;
 
-use Cake\Datasource\EntityInterface;
 use Cake\Event\Event;
 use Cake\Event\EventManager;
 use Cake\ORM\Entity;
 use Crustum\Notification\AnonymousNotifiable;
-use Crustum\Notification\Notification;
-use Crustum\Notification\ShouldQueueInterface;
 use Crustum\Speculum\Enum\EntryType;
 use Crustum\Speculum\Test\TestCase\TestCaseBase;
 use Crustum\Speculum\Watcher\NotificationWatcher;
@@ -39,12 +36,7 @@ class NotificationWatcherTest extends TestCaseBase
         $watcher->register();
 
         $user = new Entity(['id' => 7, 'username' => 'admiral']);
-        $notification = new class extends Notification {
-            public function via(EntityInterface|AnonymousNotifiable $notifiable): array
-            {
-                return ['database'];
-            }
-        };
+        $notification = new TestNotification();
 
         EventManager::instance()->dispatch(new Event('Model.Notification.sent', null, [
             'notifiable' => $user,
@@ -69,12 +61,7 @@ class NotificationWatcherTest extends TestCaseBase
     {
         $watcher = new NotificationWatcher(['enabled' => true]);
         $anonymous = (new AnonymousNotifiable())->route('mail', 'speculum@example.com');
-        $notification = new class extends Notification {
-            public function via(EntityInterface|AnonymousNotifiable $notifiable): array
-            {
-                return ['mail'];
-            }
-        };
+        $notification = new TestMailNotification();
 
         $watcher->record([
             'notifiable' => $anonymous,
@@ -95,12 +82,7 @@ class NotificationWatcherTest extends TestCaseBase
     public function testNotificationWatcherMarksQueuedNotifications(): void
     {
         $watcher = new NotificationWatcher(['enabled' => true]);
-        $notification = new class extends Notification implements ShouldQueueInterface {
-            public function via(EntityInterface|AnonymousNotifiable $notifiable): array
-            {
-                return ['database'];
-            }
-        };
+        $notification = new TestQueuedNotification();
 
         $watcher->record([
             'notifiable' => new Entity(['id' => 1]),

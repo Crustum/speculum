@@ -10,8 +10,10 @@ use Cake\Http\Response;
 use Cake\Http\ServerRequest;
 use Crustum\Speculum\Entry\IncomingEntry;
 use Crustum\Speculum\Enum\EntryType;
+use Crustum\Speculum\Resolver\PolicyResolver;
 use Crustum\Speculum\Sanitizer\SensitiveData;
 use Crustum\Speculum\Speculum;
+use Crustum\Speculum\Watcher\Trait\RouteIgnoreTrait;
 use Throwable;
 use function Cake\Core\pluginSplit;
 
@@ -20,6 +22,8 @@ use function Cake\Core\pluginSplit;
  */
 class RequestWatcher extends Watcher
 {
+    use RouteIgnoreTrait;
+
     /**
      * @inheritDoc
      */
@@ -37,8 +41,25 @@ class RequestWatcher extends Watcher
      */
     public function record(ServerRequest $request, Response $response, float $started): void
     {
-        if (!Speculum::isRecording() || $this->shouldIgnoreHttpMethod($request) || $this->shouldIgnoreStatusCode($response)) {
+        if (
+            !Speculum::isRecording()
+            || $this->shouldIgnore($request)
+            || $this->shouldIgnoreHttpMethod($request)
+            || $this->shouldIgnoreStatusCode($response)
+        ) {
             return;
+        }
+
+        $isStreamable = !$response->getBody()->isSeekable();
+        $skipBody = $this->shouldIgnoreContentType($response)
+            || ($isStreamable && $this->ignoresStreamable());
+
+        if (!$skipBody) {
+            $responseBody = $this->responsePayload($response);
+        } elseif ($isStreamable && !$this->shouldIgnoreContentType($response)) {
+            $responseBody = 'Streaming Response';
+        } else {
+            $responseBody = 'Skipped By Speculum';
         }
 
         $params = $this->params($request);
@@ -46,7 +67,7 @@ class RequestWatcher extends Watcher
         $duration = (int)floor((microtime(true) - $started) * 1000);
         $slow = $this->isSlowDuration($duration);
 
-        Speculum::recordEntry(EntryType::Request, IncomingEntry::make([
+        Speculum::recordEntry(EntryType::Request, IncomingEntry::make(array_filter([
             'ip_address' => $request->clientIp(),
             'uri' => $request->getRequestTarget(),
             'method' => $request->getMethod(),
@@ -59,11 +80,13 @@ class RequestWatcher extends Watcher
             'session' => $this->session($request),
             'response_headers' => $this->headers($response->getHeaders()),
             'response_status' => $response->getStatusCode(),
-            'response' => $this->responsePayload($response),
+            'response' => $responseBody,
             'duration' => $duration,
             'slow' => $slow,
             'memory' => round(memory_get_peak_usage(true) / 1024 / 1024, 1),
-        ])->tags($this->slowTags($duration)));
+            'policy' => (new PolicyResolver())->resolve($request),
+            'is_streamable' => $isStreamable ? true : null,
+        ]))->tags($this->slowTags($duration)));
     }
 
     /**
@@ -225,6 +248,40 @@ class RequestWatcher extends Watcher
     protected function shouldIgnoreStatusCode(Response $response): bool
     {
         return in_array($response->getStatusCode(), $this->options['ignore_status_codes'] ?? [], true);
+    }
+
+    /**
+     * Determine whether the response content type should be ignored.
+     *
+     * @param \Cake\Http\Response $response Response.
+     * @return bool
+     */
+    public function shouldIgnoreContentType(Response $response): bool
+    {
+        $ignored = $this->options['ignore_content_types'] ?? [];
+        if ($ignored === []) {
+            return false;
+        }
+
+        $contentType = $response->getHeaderLine('Content-Type');
+        $mediaType = strtolower(trim(explode(';', $contentType)[0]));
+        foreach ($ignored as $pattern) {
+            if (fnmatch($pattern, $contentType) || fnmatch($pattern, $mediaType)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether non-seekable (streaming) response bodies skip recording.
+     *
+     * @return bool
+     */
+    public function ignoresStreamable(): bool
+    {
+        return (bool)($this->options['ignore_streamable'] ?? true);
     }
 
     /**

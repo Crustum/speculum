@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Crustum\Speculum\Entry;
 
 use Crustum\Speculum\Enum\EntryType;
+use Override;
 
 /**
  * Incoming VarDump entry with batch entry-point metadata.
@@ -33,6 +34,7 @@ class IncomingVarDumpEntry extends IncomingEntry
     /**
      * @inheritDoc
      */
+    #[Override]
     public function isVarDump(): bool
     {
         return true;

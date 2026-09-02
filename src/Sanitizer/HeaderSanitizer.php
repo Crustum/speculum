@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Crustum\Speculum\Sanitizer;
 
+use Override;
+
 /**
  * Redacts sensitive HTTP header values (case-insensitive keys).
  */
@@ -24,6 +26,7 @@ class HeaderSanitizer extends RecursiveArraySanitizer
     /**
      * @inheritDoc
      */
+    #[Override]
     public function sanitize(mixed $value): mixed
     {
         if (!is_array($value)) {

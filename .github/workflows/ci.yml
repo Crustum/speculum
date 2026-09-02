@@ -20,15 +20,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - php-version: '8.2'
+          - php-version: '8.4'
             db-type: 'mysql'
             dependencies: lowest
-          - php-version: '8.3'
-            db-type: 'mysql'
-            dependencies: highest
-          - php-version: '8.3'
-            db-type: 'pgsql'
-            dependencies: highest
           - php-version: '8.4'
             db-type: 'mysql'
             dependencies: highest
@@ -82,11 +76,11 @@ jobs:
         fi
 
     - name: Setup problem matchers for PHPUnit
-      if: matrix.php-version == '8.2' && matrix.db-type == 'mysql'
+      if: matrix.php-version == '8.4' && matrix.db-type == 'mysql'
       run: echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
     - name: Run PHPUnit with coverage
-      if: matrix.php-version == '8.2' && matrix.db-type == 'mysql'
+      if: matrix.php-version == '8.4' && matrix.db-type == 'mysql'
       run: |
         export CODECOVERAGE=1
         if [[ "${{ matrix.db-type }}" == 'mysql' ]]; then export db_dsn='mysql://root:root@127.0.0.1:3306/speculum_test?encoding=utf8mb4&timezone=UTC&cacheMetadata=true&quoteIdentifiers=true&persistent=false'; fi
@@ -94,14 +88,14 @@ jobs:
         vendor/bin/phpunit --configuration=phpunit.xml.dist --display-deprecations --display-incomplete --display-skipped --coverage-clover=coverage.xml
 
     - name: Run PHPUnit without coverage
-      if: matrix.php-version != '8.2' || matrix.db-type != 'mysql'
+      if: matrix.php-version != '8.4' || matrix.db-type != 'mysql'
       run: |
         if [[ "${{ matrix.db-type }}" == 'mysql' ]]; then export db_dsn='mysql://root:root@127.0.0.1:3306/speculum_test?encoding=utf8mb4&timezone=UTC&cacheMetadata=true&quoteIdentifiers=true&persistent=false'; fi
         if [[ "${{ matrix.db-type }}" == 'pgsql' ]]; then export db_dsn='postgres://postgres:postgres@127.0.0.1:5432/speculum_test?encoding=utf8&timezone=UTC&cacheMetadata=true&quoteIdentifiers=true&persistent=false'; fi
         vendor/bin/phpunit --configuration=phpunit.xml.dist
 
     - name: Submit code coverage
-      if: matrix.php-version == '8.2' && matrix.db-type == 'mysql'
+      if: matrix.php-version == '8.4' && matrix.db-type == 'mysql'
       uses: codecov/codecov-action@v7
 
   cs-stan:
@@ -114,7 +108,7 @@ jobs:
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
       with:
-        php-version: '8.2'
+        php-version: '8.4'
         extensions: mbstring, intl
         coverage: none
 
@@ -130,5 +124,11 @@ jobs:
     - name: Run PHP CodeSniffer
       run: composer cs-check
 
+    - name: Run Rector
+      run: composer rector-check
+
     - name: Run phpstan
       run: composer stan
+
+    - name: Run structarmed
+      run: composer structarmed

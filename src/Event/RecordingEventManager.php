@@ -7,6 +7,7 @@ use Cake\Event\EventInterface;
 use Cake\Event\EventList;
 use Cake\Event\EventManager;
 use Crustum\Speculum\Watcher\EventWatcher;
+use Override;
 use ReflectionProperty;
 
 /**
@@ -98,6 +99,7 @@ class RecordingEventManager extends EventManager
     /**
      * @inheritDoc
      */
+    #[Override]
     public function addEventToList(EventInterface $event)
     {
         $this->recordIfMatching($event);
@@ -129,7 +131,7 @@ class RecordingEventManager extends EventManager
      */
     protected function matchesMask(string $eventName): bool
     {
-        return array_any($this->masks, fn($mask): bool => fnmatch($mask, $eventName));
+        return array_any($this->masks, fn(string $mask): bool => fnmatch($mask, $eventName));
     }
 
     /**

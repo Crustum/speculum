@@ -95,6 +95,15 @@ class Speculum
     public static ?string $recordingBatchId = null;
 
     /**
+     * Earliest known request start microtime, captured as early as possible
+     * (plugin bootstrap / Application.buildContainer) so the recorded request
+     * duration reflects full app bootstrap, not just middleware dispatch.
+     *
+     * @var float|null
+     */
+    private static ?float $requestStartedAt = null;
+
+    /**
      * Request header names hidden from recorded request entries.
      *
      * @var list<string>
@@ -244,6 +253,34 @@ class Speculum
         }
 
         return static::$repository;
+    }
+
+    /**
+     * Capture the earliest request start time.
+     *
+     * Call this as early as possible (plugin bootstrap, Application.buildContainer)
+     * so the logged request duration spans full app bootstrap. The first capture in
+     * a request wins; pass `$force` to overwrite (used by plugin bootstrap, which
+     * runs on every request and clears any stale value from a previous request).
+     *
+     * @param bool $force Overwrite an existing start time.
+     * @return void
+     */
+    public static function markRequestStart(bool $force = false): void
+    {
+        if ($force || self::$requestStartedAt === null) {
+            self::$requestStartedAt = microtime(true);
+        }
+    }
+
+    /**
+     * Earliest captured request start microtime, or null.
+     *
+     * @return float|null
+     */
+    public static function requestStartedAt(): ?float
+    {
+        return self::$requestStartedAt;
     }
 
     /**

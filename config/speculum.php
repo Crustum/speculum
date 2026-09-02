@@ -1,25 +1,30 @@
 <?php
 declare(strict_types=1);
 
+use Crustum\Speculum\Watcher\AiWatcher;
+use Crustum\Speculum\Watcher\AuthorizationWatcher;
 use Crustum\Speculum\Watcher\BatchWatcher;
 use Crustum\Speculum\Watcher\BlazeCastWatcher;
 use Crustum\Speculum\Watcher\BroadcastWatcher;
 use Crustum\Speculum\Watcher\CacheWatcher;
-use Crustum\Speculum\Watcher\HttpClientWatcher;
 use Crustum\Speculum\Watcher\CommandWatcher;
 use Crustum\Speculum\Watcher\EventWatcher;
 use Crustum\Speculum\Watcher\ExceptionWatcher;
+use Crustum\Speculum\Watcher\HttpClientWatcher;
 use Crustum\Speculum\Watcher\LogWatcher;
+use Crustum\Speculum\Watcher\MailWatcher;
+use Crustum\Speculum\Watcher\ModelWatcher;
+use Crustum\Speculum\Watcher\Mongo\CrustumMongoWatcher;
+use Crustum\Speculum\Watcher\Mongo\MongoQueryLogWatcher;
+use Crustum\Speculum\Watcher\Mongo\MongoWatcher;
+use Crustum\Speculum\Watcher\NotificationWatcher;
+use Crustum\Speculum\Watcher\QueryWatcher;
 use Crustum\Speculum\Watcher\Queue\DereuromarkJobWatcher;
 use Crustum\Speculum\Watcher\Queue\JobWatcher;
 use Crustum\Speculum\Watcher\Queue\QueuesadillaJobWatcher;
-use Crustum\Speculum\Watcher\MailWatcher;
-use Crustum\Speculum\Watcher\ModelWatcher;
-use Crustum\Speculum\Watcher\MongoWatcher;
-use Crustum\Speculum\Watcher\NotificationWatcher;
-use Crustum\Speculum\Watcher\QueryWatcher;
 use Crustum\Speculum\Watcher\RequestWatcher;
 use Crustum\Speculum\Watcher\ScheduleWatcher;
+use Crustum\Speculum\Watcher\SearchesWatcher;
 use Crustum\Speculum\Watcher\VarDumpWatcher;
 use Crustum\Speculum\Watcher\ViewWatcher;
 
@@ -128,6 +133,12 @@ return [
             'cache clear_all',
         ],
         'watchers' => [
+            AiWatcher::class => [
+                'enabled' => filter_var(env('SPECULUM_AI_WATCHER', true), FILTER_VALIDATE_BOOLEAN),
+                'slow' => (float)env('SPECULUM_AI_SLOW', 1000),
+                'ignore' => [],
+                'categories' => ['agent', 'tool', 'generation', 'store', 'file', 'failover'],
+            ],
             BatchWatcher::class => filter_var(env('SPECULUM_BATCH_WATCHER', true), FILTER_VALIDATE_BOOLEAN),
             BroadcastWatcher::class => filter_var(env('SPECULUM_BROADCAST_WATCHER', true), FILTER_VALIDATE_BOOLEAN),
             BlazeCastWatcher::class => [
@@ -142,6 +153,15 @@ return [
                 'ignore' => [
                     'cake_blazecast:*',
                     'rhythm*',
+                ],
+            ],
+            AuthorizationWatcher::class => [
+                'enabled' => filter_var(env('SPECULUM_AUTHORIZATION_WATCHER', true), FILTER_VALIDATE_BOOLEAN),
+                'link_checks' => env('SPECULUM_AUTHORIZATION_LINK_CHECKS', 'off'),
+                'ignore' => [
+                    ['plugin' => 'DebugKit'],
+                    ['plugin' => 'Crustum/Speculum'],
+                    ['plugin' => 'Crustum/Ignis'],
                 ],
             ],
             HttpClientWatcher::class => [
@@ -208,9 +228,42 @@ return [
                     'saslStart',
                     'saslContinue',
                     'getMore',
+                    'listCollections',
+                    'listIndexes',
+                    'listDatabases',
+                    'collStats',
+                    'dbStats',
+                    'abortTransaction',
+                    'commitTransaction',
+                    'startTransaction',
                 ],
             ],
+            CrustumMongoWatcher::class => [
+                'enabled' => filter_var(env('SPECULUM_CRUSTUM_MONGO_WATCHER', true), FILTER_VALIDATE_BOOLEAN),
+                'ignore_connections' => [
+                    'debug_kit',
+                    'test_mongo',
+                    'test',
+                ],
+                'slow' => (float)env('SPECULUM_CRUSTUM_MONGO_SLOW', 100),
+            ],
+            MongoQueryLogWatcher::class => [
+                'enabled' => filter_var(env('SPECULUM_MONGO_QUERY_LOG_WATCHER', true), FILTER_VALIDATE_BOOLEAN),
+                'ignore_connections' => [
+                    'debug_kit',
+                    'test_mongo',
+                    'test',
+                ],
+                'scopes' => ['mongoQueriesLog', 'mongo.database.queries'],
+                'slow' => (float)env('SPECULUM_MONGO_QUERY_LOG_SLOW', 100),
+            ],
             NotificationWatcher::class => filter_var(env('SPECULUM_NOTIFICATION_WATCHER', true), FILTER_VALIDATE_BOOLEAN),
+            SearchesWatcher::class => [
+                'enabled' => filter_var(env('SPECULUM_SEARCHES_WATCHER', true), FILTER_VALIDATE_BOOLEAN),
+                'slow' => (float)env('SPECULUM_SEARCHES_SLOW', 100),
+                'request' => filter_var(env('SPECULUM_SEARCHES_REQUEST', true), FILTER_VALIDATE_BOOLEAN),
+                'response' => filter_var(env('SPECULUM_SEARCHES_RESPONSE', true), FILTER_VALIDATE_BOOLEAN),
+            ],
             QueryWatcher::class => [
                 'enabled' => filter_var(env('SPECULUM_QUERY_WATCHER', true), FILTER_VALIDATE_BOOLEAN),
                 'ignore_packages' => true,
@@ -223,8 +276,16 @@ return [
             RequestWatcher::class => [
                 'enabled' => filter_var(env('SPECULUM_REQUEST_WATCHER', true), FILTER_VALIDATE_BOOLEAN),
                 'size_limit' => (int)env('SPECULUM_RESPONSE_SIZE_LIMIT', 64),
+                'ignore_streamable' => filter_var(env('SPECULUM_IGNORE_STREAMABLE', true), FILTER_VALIDATE_BOOLEAN),
                 'ignore_http_methods' => [],
                 'ignore_status_codes' => [],
+                'ignore_content_types' => [
+                    'text/event-stream',
+                ],
+                'ignore' => [
+                    ['plugin' => 'Crustum/Speculum'],
+                    ['plugin' => 'Crustum/Ignis'],
+                ],
                 'slow' => (float)env('SPECULUM_REQUEST_SLOW', 1000),
             ],
             ScheduleWatcher::class => filter_var(env('SPECULUM_SCHEDULE_WATCHER', true), FILTER_VALIDATE_BOOLEAN),

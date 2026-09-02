@@ -41,7 +41,7 @@ class SpeculumRecordingMiddleware implements MiddlewareInterface
             }
         }
 
-        $started = microtime(true);
+        $started = Speculum::requestStartedAt() ?? microtime(true);
 
         try {
             $response = $handler->handle($request);
@@ -59,16 +59,24 @@ class SpeculumRecordingMiddleware implements MiddlewareInterface
 
                 $options = Configure::read('Speculum.watchers.' . RequestWatcher::class, []);
                 $watcher = new RequestWatcher(is_array($options) ? $options : []);
-                $stream = $response->getBody();
-                if (!$stream->isSeekable()) {
-                    $contents = $stream->getContents();
-                    $response = $response->withStringBody($contents);
+
+                $skipBody = $watcher->shouldIgnoreContentType($response)
+                    || ($watcher->ignoresStreamable() && !$response->getBody()->isSeekable());
+                if (!$skipBody) {
+                    $stream = $response->getBody();
+                    if (!$stream->isSeekable()) {
+                        $contents = $stream->getContents();
+                        $response = $response->withStringBody($contents);
+                    }
                 }
 
                 $watcher->record($request, $response, $started);
-                $body = $response->getBody();
-                if ($body->isSeekable()) {
-                    $body->rewind();
+
+                if (!$skipBody) {
+                    $body = $response->getBody();
+                    if ($body->isSeekable()) {
+                        $body->rewind();
+                    }
                 }
             }
 

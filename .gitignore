@@ -52,7 +52,7 @@ phpunit.xml
 psalm-baseline.xml
 
 # Composer
-composer.lock
+/composer.lock
 /composer.phar
 
 # Lock files

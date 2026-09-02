@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0]
+
+### Added
+
+- CakeDC Authorization watcher (ability-based dedup per controller/action)
+- Authorization gate: `PolicyResolver`, `SpeculumAuthorizationServiceDecorator` (intercepts `can()`/`canResult()`), `SpeculumAuthorizationMiddleware`, and `EntryType::Authorization`
+- AiWatcher: records Crustum/Ai `Ai.*` events (agent/tool/generation/store/failover) as `ai` entries with category/provider/model/invocation tags
+- Structured route-ignore for Authorization/Request watchers via shared `RouteIgnoreTrait` (plugin/prefix/controller/action, `*` wildcard)
+- Store entries `content` as native JSON (jsonb + GIN on Postgres, JSON on MySQL)
+- Event-based flush: `SpeculumFlushEvent` + `StorageListener` listener
+- Reorganize Mongo watcher into src/Watcher/Mongo/ (CrustumMongoWatcher,
+  MongoCommandSubscriber, MongoQueryLogEngine, MongoQueryLogWatcher,
+  MongoWatcher, SpeculumMongoQueryLogger)
+- RequestWatcher/QueryWatcher: ignore_content_types to skip body recording for
+  streaming responses (text/event-stream from AI agents)
+- Frontend: command formatter pane, command details tabs, base64/formatPhp
+  utils, mongo query screens, AI + Authorization nav/routes
+
+### Fixed
+- Capture earliest request start (plugin bootstrap / `Application.buildContainer`) for accurate duration
+- Move `SpeculumRecordingMiddleware` before `ErrorHandlerMiddleware` to capture controller errors
+- Merge entry resources by path so renamed types both appear in the index
+
+
+
 ## [1.0.0]
 
 Initial release of `crustum/speculum` (`Crustum\Speculum`).

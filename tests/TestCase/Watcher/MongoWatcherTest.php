@@ -9,7 +9,7 @@ use Crustum\Speculum\Enum\SoftFeature;
 use Crustum\Speculum\Registry\WatcherRegistry;
 use Crustum\Speculum\Speculum;
 use Crustum\Speculum\Test\TestCase\TestCaseBase;
-use Crustum\Speculum\Watcher\MongoWatcher;
+use Crustum\Speculum\Watcher\Mongo\MongoWatcher;
 
 /**
  * MongoWatcher unit tests.

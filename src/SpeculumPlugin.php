@@ -3,12 +3,13 @@ declare(strict_types=1);
 
 namespace Crustum\Speculum;
 
-use Authentication\Middleware\AuthenticationMiddleware;
+use Authorization\Middleware\RequestAuthorizationMiddleware;
 use Cake\Console\CommandCollection;
 use Cake\Core\BasePlugin;
 use Cake\Core\Configure;
 use Cake\Core\ContainerInterface;
 use Cake\Core\PluginApplicationInterface;
+use Cake\Error\Middleware\ErrorHandlerMiddleware;
 use Cake\Http\MiddlewareQueue;
 use Crustum\PluginManifest\Manifest\ManifestInterface;
 use Crustum\PluginManifest\Manifest\ManifestTrait;
@@ -22,6 +23,7 @@ use Crustum\Speculum\Contract\ClearableRepository;
 use Crustum\Speculum\Contract\EntriesRepository;
 use Crustum\Speculum\Contract\PrunableRepository;
 use Crustum\Speculum\Mcp\SpeculumServer;
+use Crustum\Speculum\Middleware\SpeculumAuthorizationMiddleware;
 use Crustum\Speculum\Middleware\SpeculumRecordingMiddleware;
 use Crustum\Speculum\Registry\WatcherRegistry;
 use Crustum\Speculum\Storage\DatabaseEntriesRepository;
@@ -72,6 +74,17 @@ class SpeculumPlugin extends BasePlugin implements ManifestInterface
     public function bootstrap(PluginApplicationInterface $app): void
     {
         parent::bootstrap($app);
+
+        // Capture the earliest request start so recorded request durations span
+        // full app bootstrap (force: clears any value leaked from a prior request
+        // in a persistent php-cgi / FPM worker).
+        Speculum::markRequestStart(true);
+
+        // Also capture on the framework's earliest dispatch event as a backup hook
+        // (no-op if plugin bootstrap already stamped an earlier time this request).
+        $app->getEventManager()->on('Application.buildContainer', static function (): void {
+            Speculum::markRequestStart();
+        });
 
         if (!Configure::check('Speculum')) {
             if (file_exists(CONFIG . 'speculum.php')) {
@@ -126,13 +139,31 @@ class SpeculumPlugin extends BasePlugin implements ManifestInterface
     public function middleware(MiddlewareQueue $middlewareQueue): MiddlewareQueue
     {
         $recording = new SpeculumRecordingMiddleware();
-        $authenticationMiddleware = AuthenticationMiddleware::class;
-        if (class_exists($authenticationMiddleware)) {
+        $authorizationDecorator = new SpeculumAuthorizationMiddleware();
+
+        $requestAuthorizationClass = RequestAuthorizationMiddleware::class;
+        $errorHandlerClass = ErrorHandlerMiddleware::class;
+
+        if (class_exists($requestAuthorizationClass)) {
             try {
-                return $middlewareQueue->insertAfter($authenticationMiddleware, $recording);
+                $middlewareQueue->insertBefore($requestAuthorizationClass, $authorizationDecorator);
+                $middlewareQueue->insertBefore($requestAuthorizationClass, $recording);
+
+                return $middlewareQueue;
             } catch (Throwable) {
             }
         }
+
+        if (class_exists($errorHandlerClass)) {
+            try {
+                $middlewareQueue->insertBefore($errorHandlerClass, $recording);
+
+                return $middlewareQueue;
+            } catch (Throwable) {
+            }
+        }
+
+        $middlewareQueue->add($authorizationDecorator);
 
         return $middlewareQueue->add($recording);
     }

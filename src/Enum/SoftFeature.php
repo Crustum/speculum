@@ -16,11 +16,21 @@ enum SoftFeature
 
     case CakeQueue;
 
+    case Ai;
+
+    case Authorization;
+
+    case CakeDCAuth;
+
     case CrustumQueue;
 
     case DereuromarkQueue;
 
+    case Explorator;
+
     case Mongo;
+
+    case CrustumMongo;
 
     case Notification;
 

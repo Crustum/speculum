@@ -16,23 +16,27 @@
         }
     ],
     "require": {
-        "php": ">=8.2",
-        "cakephp/cakephp": "^5.2",
+        "php": ">=8.4",
+        "cakephp/cakephp": "^5.4",
         "crustum/mcp": "dev-main",
         "crustum/plugin-manifest": "^1.0",
         "symfony/polyfill-php84": "^1.31",
-        "symfony/var-dumper": "^7.0|^8.0"
+        "symfony/var-dumper": "^8.1"
     },
     "require-dev": {
-        "phpunit/phpunit": "^10.5 || ^11.1 || ^12.5",
+        "boundwize/structarmed": "^0.15",
+        "cakedc/cakephp-phpstan": "^4.3",
         "cakephp/cakephp-codesniffer": "^5.0",
         "cakephp/migrations": "^5.0",
+        "cakephp/authorization": "^3.0",
         "cakephp/queue": "^2.0",
+        "crustum/cakephp-ai": "dev-main",
         "crustum/essentia": "^1.0",
         "crustum/notification": "^1.0",
         "crustum/batch-queue": "^1.1",
         "crustum/broadcasting": "^1.3",
-        "phpstan/phpstan": "^2.0",
+        "phpstan/phpstan": "^2.2.2,<2.2.6",
+        "phpunit/phpunit": "^10.5 || ^11.1 || ^12.5",
         "rector/rector": "^2.5"
     },
     "suggest": {
@@ -42,11 +46,14 @@
         "crustum/cakephp-scheduling": "Enable schedule watcher",
         "crustum/broadcasting": "Soft broadcast tags on events",
         "crustum/blazecast": "Enable blazecast watcher",
+        "crustum/cakephp-mongo-odm": "Enable crustum mongo log watcher",
         "josegonzalez/cakephp-queuesadilla": "Enable Queuesadilla job watcher and Speculum pending-update transport",
         "crustum/cakephp-queue": "Enable Crustum/Queue.Job.pushed produce recording on JobWatcher",
         "dereuromark/cakephp-queue": "Enable Dereuromark Queue.Job.* job watcher and Speculum pending-update transport",
         "ext-mongodb": "Enable soft MongoDB command watcher (CommandSubscriber APM)",
-        "crustum/speculum-mongo": "Demo extension panel for Mongo (optional; core soft watcher preferred)"
+        "crustum/explorator": "Enable soft Explorator search watcher (Explorator.SearchPerformed)",
+        "cakedc/auth": "Enable CakeDC Auth RBAC watcher",
+        "crustum/cakephp-ai": "Enable AI watcher (Crustum\\Ai events: agent, tools, generation, stores, files, failover)"
     },
     "autoload": {
         "psr-4": {
@@ -93,7 +100,8 @@
         "rector-check": "vendor/bin/rector process --dry-run",
         "rector-fix": "vendor/bin/rector process",
         "stan": "phpstan analyse src/",
-        "stan-baseline": "phpstan analyse --generate-baseline"
+        "stan-baseline": "phpstan analyse --generate-baseline",
+        "structarmed": "vendor/bin/structarmed analyze src"
     },
     "extra": {
         "installer-name": "Speculum"

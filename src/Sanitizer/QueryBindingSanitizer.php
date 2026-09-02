@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Crustum\Speculum\Sanitizer;
 
+use Override;
+
 /**
  * Redacts SQL binding values by named-key pattern, SQL column context, or omit-all.
  *
@@ -31,6 +33,7 @@ class QueryBindingSanitizer extends RecursiveArraySanitizer
     /**
      * @inheritDoc
      */
+    #[Override]
     public function sanitize(mixed $value): mixed
     {
         if ($this->omit) {

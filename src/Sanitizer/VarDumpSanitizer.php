@@ -106,6 +106,6 @@ class VarDumpSanitizer
      */
     protected static function matchesLeaf(string $leaf, array $patterns): bool
     {
-        return array_any($patterns, fn($pattern): bool => $pattern !== '' && fnmatch($pattern, $leaf, FNM_CASEFOLD));
+        return array_any($patterns, fn(string $pattern): bool => $pattern !== '' && fnmatch($pattern, $leaf, FNM_CASEFOLD));
     }
 }

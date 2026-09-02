@@ -1,5 +1,6 @@
 includes:
     - phpstan-baseline.neon
+    - vendor/cakedc/cakephp-phpstan/extension.neon
 
 parameters:
     level: 7
@@ -7,6 +8,8 @@ parameters:
         - src
     bootstrapFiles:
         - tests/bootstrap.php
+    cakeDC:
+        appNamespace: Crustum\Speculum
     tmpDir: build/phpstan
     ignoreErrors:
         -

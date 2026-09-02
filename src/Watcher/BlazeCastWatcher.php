@@ -206,7 +206,7 @@ class BlazeCastWatcher extends Watcher
     {
         return array_any(
             $this->systemEvents,
-            fn($system): bool => $eventName === $system || str_starts_with($eventName, (string)$system),
+            fn(string $system): bool => $eventName === $system || str_starts_with($eventName, $system),
         );
     }
 }
