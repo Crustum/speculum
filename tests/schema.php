@@ -13,7 +13,7 @@ return [
             'family_hash' => ['type' => 'string', 'length' => 255, 'null' => true, 'default' => null],
             'should_display_on_index' => ['type' => 'boolean', 'null' => false, 'default' => true],
             'type' => ['type' => 'string', 'length' => 20, 'null' => false],
-            'content' => ['type' => 'text', 'null' => false],
+            'content' => ['type' => 'json', 'null' => false],
             'duration' => ['type' => 'integer', 'null' => true, 'default' => null],
             'created' => ['type' => 'datetime', 'null' => true, 'default' => null],
         ],

@@ -14,6 +14,12 @@ describe('App.vue sidebar nav', () => {
         expect(appSource).toContain("label: 'Cache'");
         expect(appSource).toContain("to: '/mongo'");
         expect(appSource).toContain("label: 'Mongo'");
+        expect(appSource).toContain("to: '/searches'");
+        expect(appSource).toContain("label: 'Searches'");
+        expect(appSource).toContain("to: '/mongo-queries'");
+        expect(appSource).toContain("label: 'Mongo Queries'");
+        expect(appSource).toContain("to: '/mongo-query-logs'");
+        expect(appSource).toContain("label: 'Mongo Query Logs'");
     });
 
     it('includes a sidebar menu filter input', () => {

@@ -22,6 +22,7 @@ import ViewLinkCell from './components/ViewLinkCell.vue';
 import StatusBadge from './components/StatusBadge.vue';
 import FlagBadge from './components/FlagBadge.vue';
 import MutedTextCell from './components/MutedTextCell.vue';
+import CollapsibleContent from './components/CollapsibleContent.vue';
 import { spaBasePath } from './utils/api';
 
 window.Speculum = window.Speculum || { path: 'speculum', timezone: 'UTC', recording: true, root: '' };
@@ -55,5 +56,6 @@ app.component('ViewLinkCell', ViewLinkCell);
 app.component('StatusBadge', StatusBadge);
 app.component('FlagBadge', FlagBadge);
 app.component('MutedTextCell', MutedTextCell);
+app.component('CollapsibleContent', CollapsibleContent);
 
 app.mount('#speculum');

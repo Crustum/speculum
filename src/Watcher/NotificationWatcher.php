@@ -108,10 +108,25 @@ class NotificationWatcher extends Watcher
         }
 
         if (is_object($notification)) {
-            return $notification::class;
+            return $this->classLabel($notification);
         }
 
         return null;
+    }
+
+    /**
+     * Return a JSON-safe label for an object's class.
+     *
+     * Anonymous classes encode a NUL byte in their `::class` name, which
+     * Postgres `jsonb` rejects. The byte is stripped so the stored value stays
+     * a valid JSON string across every supported driver.
+     *
+     * @param object $object Object to label.
+     * @return string
+     */
+    protected function classLabel(object $object): string
+    {
+        return str_replace("\0", '', $object::class);
     }
 
     /**
@@ -140,7 +155,7 @@ class NotificationWatcher extends Watcher
         }
 
         if (is_object($notifiable)) {
-            return $notifiable::class;
+            return $this->classLabel($notifiable);
         }
 
         return null;
@@ -189,7 +204,7 @@ class NotificationWatcher extends Watcher
         }
 
         if (is_object($response)) {
-            return $response::class;
+            return $this->classLabel($response);
         }
 
         return null;

@@ -3,12 +3,15 @@ declare(strict_types=1);
 
 namespace Crustum\Speculum\Registry;
 
+use Authorization\Middleware\RequestAuthorizationMiddleware;
 use Cake\Core\Configure;
 use Cake\Core\Plugin;
 use Cake\Queue\QueueManager;
 use Crustum\Queue\Event\JobPushedEvent;
 use Crustum\Speculum\Enum\EntryType;
 use Crustum\Speculum\Enum\SoftFeature;
+use Crustum\Speculum\Watcher\AiWatcher;
+use Crustum\Speculum\Watcher\AuthorizationWatcher;
 use Crustum\Speculum\Watcher\BatchWatcher;
 use Crustum\Speculum\Watcher\BlazeCastWatcher;
 use Crustum\Speculum\Watcher\BroadcastWatcher;
@@ -20,7 +23,9 @@ use Crustum\Speculum\Watcher\HttpClientWatcher;
 use Crustum\Speculum\Watcher\LogWatcher;
 use Crustum\Speculum\Watcher\MailWatcher;
 use Crustum\Speculum\Watcher\ModelWatcher;
-use Crustum\Speculum\Watcher\MongoWatcher;
+use Crustum\Speculum\Watcher\Mongo\CrustumMongoWatcher;
+use Crustum\Speculum\Watcher\Mongo\MongoQueryLogWatcher;
+use Crustum\Speculum\Watcher\Mongo\MongoWatcher;
 use Crustum\Speculum\Watcher\NotificationWatcher;
 use Crustum\Speculum\Watcher\QueryWatcher;
 use Crustum\Speculum\Watcher\Queue\DereuromarkJobWatcher;
@@ -28,6 +33,7 @@ use Crustum\Speculum\Watcher\Queue\JobWatcher;
 use Crustum\Speculum\Watcher\Queue\QueuesadillaJobWatcher;
 use Crustum\Speculum\Watcher\RequestWatcher;
 use Crustum\Speculum\Watcher\ScheduleWatcher;
+use Crustum\Speculum\Watcher\SearchesWatcher;
 use Crustum\Speculum\Watcher\VarDumpWatcher;
 use Crustum\Speculum\Watcher\ViewWatcher;
 use Crustum\Speculum\Watcher\Watcher;
@@ -104,11 +110,12 @@ final class WatcherRegistry
                 continue;
             }
 
+            $options = is_array($watcher) ? $watcher : [];
+
             if (!self::shouldRegister($class)) {
                 continue;
             }
 
-            $options = is_array($watcher) ? $watcher : [];
             $instance = new $class($options);
             self::$watchers[] = $class;
             $instance->register();
@@ -196,6 +203,14 @@ final class WatcherRegistry
                     ),
                 SoftFeature::DereuromarkQueue => class_exists(QueuedJob::class),
                 SoftFeature::Mongo => extension_loaded('mongodb'),
+                SoftFeature::CrustumMongo => class_exists('Crustum\\Mongo\\Database\\Driver\\MongoDriver'),
+                SoftFeature::CakeDCAuth => class_exists('CakeDC\\Auth\\Rbac\\Rbac')
+                    || Plugin::isLoaded('CakeDC/Auth')
+                    || Plugin::isLoaded('CakeDC/Users'),
+                SoftFeature::Ai => Plugin::isLoaded('Crustum/Ai') || Plugin::isLoaded('Ai'),
+                SoftFeature::Authorization => class_exists(RequestAuthorizationMiddleware::class),
+                SoftFeature::Explorator => Plugin::isLoaded('Crustum/Explorator')
+                    || Plugin::isLoaded('Explorator'),
             };
         } catch (Throwable) {
             return false;
@@ -250,10 +265,16 @@ final class WatcherRegistry
             'queries' => self::isNavVisible(QueryWatcher::class),
             'models' => self::isNavVisible(ModelWatcher::class),
             'mongo' => self::isSoftAvailable(SoftFeature::Mongo, MongoWatcher::class),
+            'mongo-queries' => self::isSoftAvailable(SoftFeature::CrustumMongo, CrustumMongoWatcher::class),
+            'mongo-query-logs' => self::isSoftAvailable(SoftFeature::CrustumMongo, MongoQueryLogWatcher::class),
+            'authorization' => self::isSoftAvailable(SoftFeature::CakeDCAuth, AuthorizationWatcher::class)
+                || self::isSoftAvailable(SoftFeature::Authorization, AuthorizationWatcher::class),
+            'ai' => self::isSoftAvailable(SoftFeature::Ai, AiWatcher::class),
             'requests' => self::isNavVisible(RequestWatcher::class),
             'views' => self::isNavVisible(ViewWatcher::class),
             'commands' => self::isNavVisible(CommandWatcher::class),
             'schedule' => self::isSoftAvailable(SoftFeature::Schedule, ScheduleWatcher::class),
+            'searches' => self::isSoftAvailable(SoftFeature::Explorator, SearchesWatcher::class),
             'http-clients' => self::isNavVisible(HttpClientWatcher::class),
         ];
 
@@ -310,6 +331,9 @@ final class WatcherRegistry
         self::registerEntryResource('batches', BatchWatcher::class, EntryType::Batch->value, SoftFeature::Batch);
         self::registerEntryResource('broadcasts', BroadcastWatcher::class, EntryType::Broadcast->value, SoftFeature::Broadcasting);
         self::registerEntryResource('cache', CacheWatcher::class, EntryType::Cache->value);
+        self::registerEntryResource('authorization', AuthorizationWatcher::class, EntryType::Authorization->value, SoftFeature::Authorization);
+        self::registerEntryResource('authorization', AuthorizationWatcher::class, EntryType::CakeDCAuth->value, SoftFeature::CakeDCAuth);
+        self::registerEntryResource('ai', AiWatcher::class, EntryType::Ai->value, SoftFeature::Ai);
         self::registerEntryResource('commands', CommandWatcher::class, EntryType::Command->value);
         self::registerEntryResource('events', EventWatcher::class, EntryType::Event->value);
         self::registerEntryResource('http-clients', HttpClientWatcher::class, EntryType::HttpClient->value);
@@ -317,10 +341,13 @@ final class WatcherRegistry
         self::registerEntryResource('logs', LogWatcher::class, EntryType::Log->value);
         self::registerEntryResource('models', ModelWatcher::class, EntryType::Model->value);
         self::registerEntryResource('mongo', MongoWatcher::class, EntryType::Mongo->value, SoftFeature::Mongo);
+        self::registerEntryResource('mongo-queries', CrustumMongoWatcher::class, EntryType::MongoQuery->value, SoftFeature::CrustumMongo);
+        self::registerEntryResource('mongo-query-logs', MongoQueryLogWatcher::class, EntryType::MongoQueryLog->value, SoftFeature::CrustumMongo);
         self::registerEntryResource('notifications', NotificationWatcher::class, EntryType::Notification->value, SoftFeature::Notification);
         self::registerEntryResource('queries', QueryWatcher::class, EntryType::Query->value);
         self::registerEntryResource('requests', RequestWatcher::class, EntryType::Request->value);
         self::registerEntryResource('schedule', ScheduleWatcher::class, EntryType::ScheduledTask->value, SoftFeature::Schedule);
+        self::registerEntryResource('searches', SearchesWatcher::class, EntryType::Explorator->value, SoftFeature::Explorator);
         self::registerEntryResource('vardumps', VarDumpWatcher::class, EntryType::VarDump->value);
         self::registerEntryResource('views', ViewWatcher::class, EntryType::View->value);
     }
@@ -345,7 +372,29 @@ final class WatcherRegistry
             return;
         }
 
-        self::$entryResources[$path] = new EntryResource($path, $type, $watcherClass, $soft);
+        $types = is_array($type) ? $type : [$type];
+        $softs = $soft instanceof SoftFeature ? [$soft] : [];
+
+        if (isset(self::$entryResources[$path])) {
+            $existing = self::$entryResources[$path];
+            $existingTypes = is_array($existing->type) ? $existing->type : [$existing->type];
+            $existingSofts = is_array($existing->soft) ? $existing->soft : ($existing->soft === null ? [] : [$existing->soft]);
+            $types = array_values(array_unique([...$existingTypes, ...$types]));
+            foreach ($existingSofts as $existingSoft) {
+                if (!in_array($existingSoft, $softs, true)) {
+                    $softs[] = $existingSoft;
+                }
+            }
+        }
+
+        $mergedType = count($types) === 1 ? $types[0] : $types;
+        $mergedSoft = match (count($softs)) {
+            0 => null,
+            1 => $softs[0],
+            default => $softs,
+        };
+
+        self::$entryResources[$path] = new EntryResource($path, $mergedType, $watcherClass, $mergedSoft);
     }
 
     /**
@@ -498,7 +547,12 @@ final class WatcherRegistry
             QueuesadillaJobWatcher::class => SoftFeature::Queuesadilla,
             DereuromarkJobWatcher::class => SoftFeature::DereuromarkQueue,
             MongoWatcher::class => SoftFeature::Mongo,
+            CrustumMongoWatcher::class => SoftFeature::CrustumMongo,
+            MongoQueryLogWatcher::class => SoftFeature::CrustumMongo,
+            AuthorizationWatcher::class => SoftFeature::CakeDCAuth,
+            AiWatcher::class => SoftFeature::Ai,
             ScheduleWatcher::class => SoftFeature::Schedule,
+            SearchesWatcher::class => SoftFeature::Explorator,
         ];
 
         if (isset($soft[$class])) {

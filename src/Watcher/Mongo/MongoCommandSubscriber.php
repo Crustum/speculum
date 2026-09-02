@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace Crustum\Speculum\Watcher;
+namespace Crustum\Speculum\Watcher\Mongo;
 
 use MongoDB\Driver\Monitoring\CommandFailedEvent;
 use MongoDB\Driver\Monitoring\CommandStartedEvent;
@@ -33,7 +33,7 @@ class MongoCommandSubscriber implements CommandSubscriber
     /**
      * Parent watcher.
      *
-     * @param \Crustum\Speculum\Watcher\MongoWatcher $watcher Parent watcher.
+     * @param \Crustum\Speculum\Watcher\Mongo\MongoWatcher $watcher Parent watcher.
      */
     public function __construct(protected MongoWatcher $watcher)
     {

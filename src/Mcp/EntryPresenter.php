@@ -112,6 +112,15 @@ final class EntryPresenter
                 ($content['method'] ?? '') . ' ' . ($content['uri'] ?? $content['path'] ?? ''),
             ),
             EntryType::ScheduledTask->value => (string)($content['description'] ?? $content['command'] ?? 'schedule'),
+            EntryType::Explorator->value => (string)(
+                $content['query']
+                ?? (
+                    in_array($content['operation'] ?? '', ['update', 'delete'], true)
+                        ? trim($content['operation'] . ' ' . ($content['index'] ?? $content['table'] ?? 'explorator'))
+                        : ($content['index'] ?? 'explorator')
+                )
+            ),
+            EntryType::CakeDCAuth->value => (string)($content['ability'] ?? $content['reason'] ?? 'cakedc_auth'),
             EntryType::View->value => (string)($content['name'] ?? $content['path'] ?? 'view'),
             EntryType::VarDump->value => trim(
                 ($content['summary'] ?? $content['entry_point_description'] ?? 'vardump')

@@ -10,6 +10,7 @@ use Crustum\Speculum\Enum\EntryType;
 use Crustum\Speculum\Speculum;
 use Crustum\Speculum\Test\TestCase\TestCaseBase;
 use Crustum\Speculum\Watcher\RequestWatcher;
+use Laminas\Diactoros\CallbackStream;
 
 /**
  * Request watcher tests.
@@ -320,5 +321,132 @@ class RequestWatchersTest extends TestCaseBase
             'TestApp\Controller\ProjectsController::byUsers',
             $this->loadSpeculumEntries()[0]->content['controller_action'],
         );
+    }
+
+    /**
+     * @return void
+     */
+    public function testRequestWatcherIgnoreSkipsMatchingRoute(): void
+    {
+        $watcher = new RequestWatcher([
+            'enabled' => true,
+            'ignore' => [
+                ['plugin' => 'Crustum/Speculum'],
+                ['controller' => 'DebugKit'],
+                ['controller' => '*', 'action' => 'login'],
+            ],
+        ]);
+
+        $spec = new ServerRequest([
+            'url' => '/telescope/x',
+            'environment' => ['REQUEST_METHOD' => 'GET'],
+            'params' => [
+                'plugin' => 'Crustum/Speculum',
+                'controller' => 'EntryResources',
+                'action' => 'view',
+            ],
+        ]);
+        $response = (new Response())->withStatus(200)->withStringBody('ok');
+        $watcher->record($spec, $response, microtime(true));
+        $this->assertCount(0, Speculum::$entriesQueue);
+
+        $login = new ServerRequest([
+            'url' => '/admin/users/login',
+            'environment' => ['REQUEST_METHOD' => 'GET'],
+            'params' => [
+                'prefix' => 'admin',
+                'controller' => 'Users',
+                'action' => 'login',
+            ],
+        ]);
+        $watcher->record($login, $response, microtime(true));
+        $this->assertCount(0, Speculum::$entriesQueue);
+
+        $other = new ServerRequest([
+            'url' => '/articles',
+            'environment' => ['REQUEST_METHOD' => 'GET'],
+            'params' => [
+                'controller' => 'Articles',
+                'action' => 'index',
+            ],
+        ]);
+        $watcher->record($other, $response, microtime(true));
+        $this->assertCount(1, Speculum::$entriesQueue);
+    }
+
+    /**
+     * @return void
+     */
+    public function testStreamableResponseSkipsBodyAndPreservesStreamByDefault(): void
+    {
+        $sse = "data: one\n\ndata: two\n\n";
+        $watcher = new RequestWatcher(['enabled' => true]);
+        $request = new ServerRequest([
+            'url' => '/api/stream',
+            'environment' => ['REQUEST_METHOD' => 'GET'],
+        ]);
+        $response = (new Response())
+            ->withStatus(200)
+            ->withType('application/x-ndjson')
+            ->withBody(new CallbackStream(static fn(): string => $sse));
+
+        $watcher->record($request, $response, microtime(true));
+
+        $entries = $this->loadSpeculumEntries();
+        $this->assertCount(1, $entries);
+        $this->assertSame('Streaming Response', $entries[0]->content['response']);
+        $this->assertTrue($entries[0]->content['is_streamable']);
+        $this->assertSame(200, $entries[0]->content['response_status']);
+        $this->assertSame('/api/stream', $entries[0]->content['uri']);
+
+        // The one-shot callback stream must still be intact for the client.
+        $this->assertSame($sse, (string)$response->getBody());
+    }
+
+    /**
+     * @return void
+     */
+    public function testStreamableResponseRecordsBodyWhenIgnoreStreamableDisabled(): void
+    {
+        $sse = "data: one\n\ndata: two\n\n";
+        $watcher = new RequestWatcher([
+            'enabled' => true,
+            'ignore_streamable' => false,
+        ]);
+        $request = new ServerRequest([
+            'url' => '/api/stream',
+            'environment' => ['REQUEST_METHOD' => 'GET'],
+        ]);
+        $response = (new Response())
+            ->withStatus(200)
+            ->withType('application/x-ndjson')
+            ->withBody(new CallbackStream(static fn(): string => $sse));
+
+        $watcher->record($request, $response, microtime(true));
+
+        $entries = $this->loadSpeculumEntries();
+        $this->assertCount(1, $entries);
+        $this->assertSame($sse, $entries[0]->content['response']);
+        $this->assertTrue($entries[0]->content['is_streamable']);
+    }
+
+    /**
+     * @return void
+     */
+    public function testNonStreamableResponseHasNoStreamableFlag(): void
+    {
+        $watcher = new RequestWatcher(['enabled' => true]);
+        $request = new ServerRequest([
+            'url' => '/api/data',
+            'environment' => ['REQUEST_METHOD' => 'GET'],
+        ]);
+        $response = (new Response())
+            ->withStatus(200)
+            ->withType('application/json')
+            ->withStringBody('{"ok":true}');
+
+        $watcher->record($request, $response, microtime(true));
+
+        $this->assertArrayNotHasKey('is_streamable', Speculum::$entriesQueue[0]->content);
     }
 }

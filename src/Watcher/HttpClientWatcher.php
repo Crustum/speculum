@@ -16,6 +16,11 @@ use SplObjectStorage;
 
 /**
  * Records outbound CakePHP Http Client requests (`HttpClient.afterSend`).
+ *
+ * Streamed responses complete after `afterSend` fires (the body must stay
+ * untouched for the live stream). The Ai plugin's tee stream dispatches
+ * `HttpClient.afterSendStream` with the captured body once the stream reaches
+ * EOF; this watcher patches the recorded entry in place via `EntryUpdate`.
  */
 class HttpClientWatcher extends Watcher
 {
@@ -27,6 +32,13 @@ class HttpClientWatcher extends Watcher
     protected SplObjectStorage $startTimes;
 
     /**
+     * Recorded entry UUIDs awaiting a streamed response body, keyed by request.
+     *
+     * @var \SplObjectStorage<\Psr\Http\Message\RequestInterface, string>
+     */
+    protected SplObjectStorage $streamContexts;
+
+    /**
      * Create an HTTP client watcher.
      *
      * @param array<string, mixed> $options Watcher options.
@@ -35,6 +47,7 @@ class HttpClientWatcher extends Watcher
     {
         parent::__construct($options);
         $this->startTimes = new SplObjectStorage();
+        $this->streamContexts = new SplObjectStorage();
     }
 
     /**
@@ -48,6 +61,10 @@ class HttpClientWatcher extends Watcher
 
         EventManager::instance()->on('HttpClient.afterSend', function (EventInterface $event): void {
             $this->afterSend($event);
+        });
+
+        EventManager::instance()->on('HttpClient.afterSendStream', function (EventInterface $event): void {
+            $this->afterSendStream($event);
         });
 
         foreach (['HttpClient.afterRequest', 'Http.Client.afterRequest'] as $eventName) {
@@ -92,12 +109,53 @@ class HttpClientWatcher extends Watcher
 
         $response = $this->resolveResponse($event);
         $duration = null;
+        $hasStart = $this->startTimes->offsetExists($request);
+        if ($hasStart) {
+            $duration = (int)floor((microtime(true) - $this->startTimes[$request]) * 1000);
+        }
+
+        $uuid = $this->recordFromHttp($request, $response, $duration);
+
+        if ($uuid !== null && $event->getData('is_streaming') === true) {
+            $this->streamContexts[$request] = $uuid;
+        } elseif ($hasStart) {
+            $this->startTimes->offsetUnset($request);
+        }
+    }
+
+    /**
+     * Patch a recorded entry with the full body captured at stream EOF.
+     *
+     * @param \Cake\Event\EventInterface<object> $event HttpClient.afterSendStream event.
+     * @return void
+     */
+    public function afterSendStream(EventInterface $event): void
+    {
+        $request = $this->resolveRequest($event);
+        if (!$request instanceof RequestInterface || !$this->streamContexts->offsetExists($request)) {
+            return;
+        }
+
+        $uuid = $this->streamContexts[$request];
+        $this->streamContexts->offsetUnset($request);
+
+        $response = $this->resolveResponse($event);
+        if (!$response instanceof Response) {
+            return;
+        }
+
+        $duration = null;
         if ($this->startTimes->offsetExists($request)) {
             $duration = (int)floor((microtime(true) - $this->startTimes[$request]) * 1000);
             $this->startTimes->offsetUnset($request);
         }
 
-        $this->recordFromHttp($request, $response, $duration);
+        Speculum::recordUpdate($this->makeDurationUpdate(
+            $uuid,
+            EntryType::HttpClient,
+            ['response' => SensitiveData::payload($this->formatResponseBody($response))],
+            $duration,
+        ));
     }
 
     /**
@@ -106,16 +164,16 @@ class HttpClientWatcher extends Watcher
      * @param \Psr\Http\Message\RequestInterface $request Outbound request.
      * @param \Cake\Http\Client\Response|null $response Response when available.
      * @param int|null $duration Duration in milliseconds.
-     * @return void
+     * @return string|null Recorded entry UUID, or null when nothing was recorded.
      */
     public function recordFromHttp(
         RequestInterface $request,
         ?Response $response = null,
         ?int $duration = null,
-    ): void {
+    ): ?string {
         $uri = (string)$request->getUri();
         if (!Speculum::isRecording() || $uri === '' || $this->shouldIgnoreHost($uri)) {
-            return;
+            return null;
         }
 
         $payload = [
@@ -138,6 +196,8 @@ class HttpClientWatcher extends Watcher
         }
 
         Speculum::recordEntry(EntryType::HttpClient, $entry);
+
+        return $entry->uuid;
     }
 
     /**

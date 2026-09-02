@@ -1,13 +1,14 @@
 <?php
 declare(strict_types=1);
 
-namespace Crustum\Speculum\Watcher;
+namespace Crustum\Speculum\Watcher\Mongo;
 
 use Crustum\Speculum\Entry\IncomingEntry;
 use Crustum\Speculum\Enum\EntryType;
 use Crustum\Speculum\Enum\SoftFeature;
 use Crustum\Speculum\Registry\WatcherRegistry;
 use Crustum\Speculum\Speculum;
+use Crustum\Speculum\Watcher\Watcher;
 use Throwable;
 use function MongoDB\Driver\Monitoring\addSubscriber;
 

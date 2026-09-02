@@ -1,9 +1,8 @@
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { ref } from 'vue';
 import { formatFileLocation, editorHref } from '../../utils/projectPath';
 
 const currentTab = ref(0);
-const dumpExpanded = ref(false);
 
 function varDumpHtmls(entry) {
     if (Array.isArray(entry?.content?.vardumps) && entry.content.vardumps.length) {
@@ -20,12 +19,6 @@ function varDumpHtmls(entry) {
 function tabLabel(index, total) {
     return total > 1 ? `Var Dump ${index + 1}` : 'Var Dump';
 }
-
-const dumpClipped = computed(() => !dumpExpanded.value);
-
-watch(currentTab, () => {
-    dumpExpanded.value = false;
-});
 </script>
 
 <template>
@@ -79,24 +72,17 @@ watch(currentTab, () => {
                             >{{ tabLabel(index, varDumpHtmls(slotProps.entry).length) }}</a>
                         </li>
                     </ul>
-                    <div class="px-4 py-3 border-bottom d-flex align-items-center justify-content-between">
-                        <span class="text-muted small" />
-                        <button
-                            type="button"
-                            class="btn btn-sm btn-outline-secondary"
-                            @click="dumpExpanded = !dumpExpanded"
-                        >
-                            {{ dumpExpanded ? 'Collapse' : 'Show All' }}
-                        </button>
-                    </div>
-                    <div
+                    <collapsible-content
                         v-for="(html, index) in varDumpHtmls(slotProps.entry)"
-                        v-show="currentTab === index"
                         :key="index"
-                        class="code-bg p-4 mb-0 text-white vardump-html"
-                        :class="{ 'response-body-preview': dumpClipped }"
-                        v-html="html"
-                    />
+                        v-show="currentTab === index"
+                        :title="tabLabel(index, varDumpHtmls(slotProps.entry).length)"
+                    >
+                        <div
+                            class="vardump-html"
+                            v-html="html"
+                        />
+                    </collapsible-content>
                 </div>
             </div>
         </template>

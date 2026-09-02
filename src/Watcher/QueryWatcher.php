@@ -13,6 +13,7 @@ use Crustum\Speculum\Sanitizer\SensitiveData;
 use Crustum\Speculum\Speculum;
 use DateTimeInterface;
 use Psr\Log\LoggerInterface;
+use ReflectionProperty;
 use Throwable;
 
 /**
@@ -82,22 +83,17 @@ class QueryWatcher extends Watcher
     /**
      * Decorate a driver logger with SpeculumQueryLogger when needed.
      *
-     * Skips if this driver instance was already wrapped so later plugins
-     * (e.g. Rhythm) can sit outside without creating a second Speculum layer.
+     * Ensures Speculum stays in the chain even when DebugKit (or another tool)
+     * wraps the driver logger afterward.
      *
      * @param \Cake\Database\Driver $driver Database driver.
      * @return void
      */
     protected function wrapDriverLogger(Driver $driver): void
     {
-        $driverId = spl_object_id($driver);
-        if (isset(static::$wrappedDrivers[$driverId])) {
-            return;
-        }
-
         $current = $driver->getLogger();
-        if ($current instanceof SpeculumQueryLogger) {
-            static::$wrappedDrivers[$driverId] = true;
+        if ($this->loggerChainHasSpeculum($current)) {
+            static::$wrappedDrivers[spl_object_id($driver)] = true;
 
             return;
         }
@@ -105,7 +101,43 @@ class QueryWatcher extends Watcher
         $driver->setLogger(new SpeculumQueryLogger(
             $current instanceof LoggerInterface ? $current : null,
         ));
-        static::$wrappedDrivers[$driverId] = true;
+        static::$wrappedDrivers[spl_object_id($driver)] = true;
+    }
+
+    /**
+     * Whether SpeculumQueryLogger is already present in the logger chain.
+     *
+     * @param \Psr\Log\LoggerInterface|null $logger Outermost driver logger.
+     * @return bool
+     */
+    protected function loggerChainHasSpeculum(?LoggerInterface $logger): bool
+    {
+        $current = $logger;
+        for ($i = 0; $i < 8 && $current instanceof LoggerInterface; $i++) {
+            if ($current instanceof SpeculumQueryLogger) {
+                return true;
+            }
+
+            if (method_exists($current, 'getInnerLogger')) {
+                $next = $current->getInnerLogger();
+                $current = $next instanceof LoggerInterface ? $next : null;
+                continue;
+            }
+
+            try {
+                $property = new ReflectionProperty($current, '_logger');
+                $inner = $property->getValue($current);
+                if ($inner instanceof LoggerInterface) {
+                    $current = $inner;
+                    continue;
+                }
+            } catch (Throwable) {
+            }
+
+            break;
+        }
+
+        return false;
     }
 
     /**

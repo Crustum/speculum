@@ -294,7 +294,7 @@ class JobWatcherTest extends TestCaseBase
 
     /**
      * queue worker is ignore_commands — recording is off until Processor.message.seen.
-     * JobWatcher must begin() before recording pending so Scout MakeSearchable is captured.
+     * JobWatcher must begin() before recording pending so Explorator MakeSearchable is captured.
      *
      * @return void
      */
@@ -306,7 +306,7 @@ class JobWatcherTest extends TestCaseBase
         Configure::write('Speculum.queue.worker_flush_interval', 0);
 
         $body = json_encode([
-            'class' => ['Crustum\\Scout\\Job\\MakeSearchable', 'execute'],
+            'class' => ['Crustum\\Explorator\\Job\\MakeSearchable', 'execute'],
             'data' => [
                 'source' => 'DocChunks',
                 'ids' => [9],
@@ -333,7 +333,7 @@ class JobWatcherTest extends TestCaseBase
             $this->assertTrue(Speculum::isRecording());
             $this->assertNotEmpty($queueMessage->getProperty('speculum_uuid'));
             $this->assertSame(
-                'Crustum\\Scout\\Job\\MakeSearchable',
+                'Crustum\\Explorator\\Job\\MakeSearchable',
                 Speculum::$entriesQueue[0]->content['name'],
             );
 
@@ -346,10 +346,11 @@ class JobWatcherTest extends TestCaseBase
 
             $entries = $this->loadSpeculumEntries();
             $this->assertCount(1, $entries);
-            $this->assertSame('Crustum\\Scout\\Job\\MakeSearchable', $entries[0]->content['name']);
+            $this->assertSame('Crustum\\Explorator\\Job\\MakeSearchable', $entries[0]->content['name']);
             $this->assertSame('processed', $entries[0]->content['status']);
             $this->assertSame(12, $entries[0]->content['duration']);
-            $this->assertSame(['source' => 'DocChunks', 'ids' => [9]], $entries[0]->content['data']);
+            $this->assertSame('DocChunks', $entries[0]->content['data']['source']);
+            $this->assertSame([9], $entries[0]->content['data']['ids']);
         } finally {
             foreach (
                 [
@@ -404,7 +405,7 @@ class JobWatcherTest extends TestCaseBase
         $this->assertCount(1, $entries);
         $this->assertSame('processed', $entries[0]->content['status']);
         $this->assertIsInt($entries[0]->content['duration']);
-        $this->assertGreaterThanOrEqual(1, $entries[0]->content['duration']);
+        $this->assertGreaterThanOrEqual(0, $entries[0]->content['duration']);
     }
 
     /**

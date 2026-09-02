@@ -8,6 +8,7 @@ use Cake\Http\Client\ClientEvent;
 use Cake\Http\Client\Request;
 use Cake\Http\Client\Response;
 use Crustum\Speculum\Enum\EntryType;
+use Crustum\Speculum\Speculum;
 use Crustum\Speculum\Test\TestCase\TestCaseBase;
 use Crustum\Speculum\Watcher\HttpClientWatcher;
 
@@ -157,5 +158,69 @@ class HttpClientWatcherTest extends TestCaseBase
             $entries[0]->content['response'],
         );
         $this->assertNotFalse(json_encode($entries[0]->content));
+    }
+
+    /**
+     * @return void
+     */
+    public function testStreamedResponsePatchesEntryOnAfterSendStream(): void
+    {
+        $client = new Client();
+        $request = new Request('https://api.openai.com/v1/chat', 'POST');
+        $sse = "data: {\"token\":\"hi\"}\n\ndata: [DONE]\n\n";
+
+        $watcher = new HttpClientWatcher(['enabled' => true]);
+
+        $before = new ClientEvent('HttpClient.beforeSend', $client, [
+            'request' => $request,
+            'adapterOptions' => [],
+        ]);
+        $after = new ClientEvent('HttpClient.afterSend', $client, [
+            'request' => $request,
+            'adapterOptions' => [],
+            'response' => new Response(['HTTP/1.1 200 OK', 'Content-Type: text/event-stream'], ''),
+            'is_streaming' => true,
+        ]);
+
+        $watcher->beforeSend($before);
+        $watcher->afterSend($after);
+
+        $this->assertCount(1, Speculum::$entriesQueue);
+        $this->assertSame('Empty Response', Speculum::$entriesQueue[0]->content['response']);
+
+        $streamEvent = new ClientEvent('HttpClient.afterSendStream', $client, [
+            'request' => $request,
+            'adapterOptions' => [],
+            'response' => new Response(
+                ['HTTP/1.1 200 OK', 'Content-Type: text/event-stream'],
+                $sse,
+            ),
+        ]);
+        $watcher->afterSendStream($streamEvent);
+
+        $entries = $this->loadSpeculumEntries();
+        $this->assertCount(1, $entries);
+        $this->assertSame($sse, $entries[0]->content['response']);
+        $this->assertSame(200, $entries[0]->content['response_status']);
+    }
+
+    /**
+     * @return void
+     */
+    public function testAfterSendStreamWithoutContextIsIgnored(): void
+    {
+        $client = new Client();
+        $request = new Request('https://api.openai.com/v1/chat', 'POST');
+        $watcher = new HttpClientWatcher(['enabled' => true]);
+
+        $streamEvent = new ClientEvent('HttpClient.afterSendStream', $client, [
+            'request' => $request,
+            'adapterOptions' => [],
+            'response' => new Response(['HTTP/1.1 200 OK'], 'data: orphan'),
+        ]);
+        $watcher->afterSendStream($streamEvent);
+
+        $entries = $this->loadSpeculumEntries();
+        $this->assertCount(0, $entries);
     }
 }

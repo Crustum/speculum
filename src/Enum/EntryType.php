@@ -8,6 +8,10 @@ namespace Crustum\Speculum\Enum;
  */
 enum EntryType: string
 {
+    case Ai = 'ai';
+
+    case Authorization = 'authorization';
+
     case Batch = 'batch';
 
     case BlazeCastDelivery = 'bc_delivery';
@@ -20,11 +24,15 @@ enum EntryType: string
 
     case Cache = 'cache';
 
+    case CakeDCAuth = 'cakedc_auth';
+
     case Command = 'command';
 
     case Event = 'event';
 
     case Exception = 'exception';
+
+    case Explorator = 'explorator';
 
     case HttpClient = 'http_client';
 
@@ -38,6 +46,10 @@ enum EntryType: string
 
     case Mongo = 'mongo';
 
+    case MongoQuery = 'mongo_query';
+
+    case MongoQueryLog = 'mongo_query_log';
+
     case Notification = 'notification';
 
     case Query = 'query';
@@ -47,8 +59,6 @@ enum EntryType: string
     case Request = 'request';
 
     case ScheduledTask = 'schedule';
-
-    case Gate = 'gate';
 
     case VarDump = 'vardump';
 

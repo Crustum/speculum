@@ -71,11 +71,25 @@ class EntryResourcesController extends EntryController
     protected function status(): string
     {
         $soft = $this->resource()->soft;
-        if ($soft instanceof SoftFeature && !WatcherRegistry::isSoftAvailable($soft)) {
+        if ($soft !== null && !$this->isSoftAvailableAny($soft)) {
             return 'off';
         }
 
         return parent::status();
+    }
+
+    /**
+     * A resource is available when at least one of its soft feature gates is available.
+     *
+     * @param \Crustum\Speculum\Enum\SoftFeature|array<\Crustum\Speculum\Enum\SoftFeature> $soft
+     */
+    private function isSoftAvailableAny(SoftFeature|array $soft): bool
+    {
+        if ($soft instanceof SoftFeature) {
+            return WatcherRegistry::isSoftAvailable($soft);
+        }
+
+        return array_any($soft, fn(SoftFeature $feature): bool => WatcherRegistry::isSoftAvailable($feature));
     }
 
     /**

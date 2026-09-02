@@ -8,9 +8,9 @@ namespace Crustum\Speculum\Enum;
  */
 enum JobStatus: string
 {
+    case Failed = 'failed';
+
     case Pending = 'pending';
 
     case Processed = 'processed';
-
-    case Failed = 'failed';
 }

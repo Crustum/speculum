@@ -1,7 +1,5 @@
 <script setup>
-import { ref } from 'vue';
-
-const currentTab = ref('arguments');
+import CommandDetailsTabs from '../../commands/CommandDetailsTabs.vue';
 </script>
 
 <template>
@@ -34,35 +32,7 @@ const currentTab = ref('arguments');
         </template>
 
         <template #after-attributes-card="slotProps">
-            <div>
-                <div class="card mt-5 overflow-hidden">
-                    <ul class="nav nav-pills">
-                        <li class="nav-item">
-                            <a
-                                class="nav-link"
-                                :class="{ active: currentTab == 'arguments' }"
-                                href="#"
-                                @click.prevent="currentTab = 'arguments'"
-                            >Arguments</a>
-                        </li>
-                        <li class="nav-item">
-                            <a
-                                class="nav-link"
-                                :class="{ active: currentTab == 'options' }"
-                                href="#"
-                                @click.prevent="currentTab = 'options'"
-                            >Options</a>
-                        </li>
-                    </ul>
-                    <div>
-                        <div class="code-bg p-4 mb-0 text-white">
-                            <copy-clipboard :data="slotProps.entry.content[currentTab]">
-                                <vue-json-pretty :data="slotProps.entry.content[currentTab]" />
-                            </copy-clipboard>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <CommandDetailsTabs :entry="slotProps.entry" />
         </template>
     </preview-screen>
 </template>

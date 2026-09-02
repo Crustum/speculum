@@ -47,14 +47,15 @@ class SensitiveData
      *
      * @param array<array-key, mixed> $data Payload.
      * @param list<string>|null $patterns Extra patterns; null uses request parameters.
+     * @param list<string> $excludeKeys Leaf keys/paths whose whole subtree is left untouched.
      * @return array<array-key, mixed>
      */
-    public static function parameters(array $data, ?array $patterns = null): array
+    public static function parameters(array $data, ?array $patterns = null, array $excludeKeys = []): array
     {
         $patterns ??= static::parameterPatterns();
 
         /** @var array<array-key, mixed> $result */
-        $result = (new RecursiveArraySanitizer($patterns))->sanitize($data);
+        $result = (new RecursiveArraySanitizer($patterns, AbstractPatternSanitizer::DEFAULT_REPLACEMENT, true, $excludeKeys))->sanitize($data);
 
         return $result;
     }

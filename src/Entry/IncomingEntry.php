@@ -261,6 +261,16 @@ class IncomingEntry
     }
 
     /**
+     * Determine whether this entry is a CakeDC Auth RBAC check.
+     *
+     * @return bool
+     */
+    public function isCakeDCAuth(): bool
+    {
+        return $this->type === EntryType::CakeDCAuth->value;
+    }
+
+    /**
      * Determine whether this entry is a slow job.
      *
      * @return bool
@@ -308,16 +318,6 @@ class IncomingEntry
     public function isCache(): bool
     {
         return $this->type === EntryType::Cache->value;
-    }
-
-    /**
-     * Determine whether this entry is an authorization gate check.
-     *
-     * @return bool
-     */
-    public function isGate(): bool
-    {
-        return $this->type === EntryType::Gate->value;
     }
 
     /**
@@ -399,6 +399,16 @@ class IncomingEntry
     public function isBroadcast(): bool
     {
         return $this->type === EntryType::Broadcast->value;
+    }
+
+    /**
+     * Determine whether this entry is an Explorator search or index write.
+     *
+     * @return bool
+     */
+    public function isExplorator(): bool
+    {
+        return $this->type === EntryType::Explorator->value;
     }
 
     /**

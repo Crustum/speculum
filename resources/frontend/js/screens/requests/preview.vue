@@ -1,16 +1,11 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import { useEntryStyles } from '@/composables/useEntryStyles';
 
 const { requestMethodClass, requestStatusClass } = useEntryStyles();
 
 const currentRequestTab = ref('payload');
 const currentResponseTab = ref('response');
-const responseBodyExpanded = ref(false);
-
-const responseBodyClipped = computed(
-    () => currentResponseTab.value === 'response' && !responseBodyExpanded.value
-);
 </script>
 
 <template>
@@ -114,59 +109,14 @@ const responseBodyClipped = computed(
                         </copy-clipboard>
                     </div>
                 </div>
-                <div class="card mt-5">
-                    <ul class="nav nav-pills">
-                        <li class="nav-item">
-                            <a
-                                class="nav-link"
-                                :class="{
-                                    active: currentResponseTab == 'response',
-                                }"
-                                href="#"
-                                @click.prevent="currentResponseTab = 'response'"
-                            >Response</a>
-                        </li>
-                        <li class="nav-item">
-                            <a
-                                class="nav-link"
-                                :class="{
-                                    active: currentResponseTab == 'response_headers',
-                                }"
-                                href="#"
-                                @click.prevent="currentResponseTab = 'response_headers'"
-                            >Headers</a>
-                        </li>
-                        <li class="nav-item">
-                            <a
-                                class="nav-link"
-                                :class="{ active: currentResponseTab == 'session' }"
-                                href="#"
-                                @click.prevent="currentResponseTab = 'session'"
-                            >Session</a>
-                        </li>
-                    </ul>
-                    <div
-                        v-if="currentResponseTab == 'response'"
-                        class="px-4 py-3 border-bottom d-flex align-items-center justify-content-between"
-                    >
-                        <span class="text-muted small">Response body</span>
-                        <button
-                            type="button"
-                            class="btn btn-sm btn-outline-secondary"
-                            @click="responseBodyExpanded = !responseBodyExpanded"
-                        >
-                            {{ responseBodyExpanded ? 'Collapse' : 'Show All' }}
-                        </button>
-                    </div>
-                    <div
-                        class="code-bg p-4 mb-0 text-white"
-                        :class="{ 'response-body-preview': responseBodyClipped }"
-                    >
-                        <copy-clipboard :data="slotProps.entry.content[currentResponseTab]">
-                            <vue-json-pretty :data="slotProps.entry.content[currentResponseTab]" />
-                        </copy-clipboard>
-                    </div>
-                </div>
+                <collapsible-content
+                    title="Response body"
+                    :collapsed="currentResponseTab === 'response'"
+                >
+                    <copy-clipboard :data="slotProps.entry.content[currentResponseTab]">
+                        <vue-json-pretty :data="slotProps.entry.content[currentResponseTab]" />
+                    </copy-clipboard>
+                </collapsible-content>
             </div>
         </template>
     </preview-screen>

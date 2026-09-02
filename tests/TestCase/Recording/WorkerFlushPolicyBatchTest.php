@@ -84,7 +84,7 @@ class WorkerFlushPolicyBatchTest extends TestCaseBase
     private function dispatchMakeSearchableJob(EventManager $manager, array $ids): string
     {
         $body = json_encode([
-            'class' => ['Crustum\\Scout\\Job\\MakeSearchable', 'execute'],
+            'class' => ['Crustum\\Explorator\\Job\\MakeSearchable', 'execute'],
             'data' => [
                 'source' => 'DocChunks',
                 'ids' => $ids,
