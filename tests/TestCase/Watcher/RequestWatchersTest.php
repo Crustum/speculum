@@ -229,7 +229,7 @@ class RequestWatchersTest extends TestCaseBase
 
         $entry = $this->loadSpeculumEntries()[0];
 
-        $this->assertSame('TestApp\Controller\Admin\UsersController::edit', $entry->content['controller_action']);
+        $this->assertSame('Admin:Users:edit', $entry->content['controller_action']);
         $this->assertSame('/{prefix}/{controller}/{action}/*', $entry->content['matched_route']);
         $this->assertSame('Users', $entry->content['params']['controller']);
         $this->assertSame('edit', $entry->content['params']['action']);
@@ -301,7 +301,7 @@ class RequestWatchersTest extends TestCaseBase
     /**
      * @return void
      */
-    public function testRequestWatcherFormatsControllerActionAsFqcnMethod(): void
+    public function testRequestWatcherFormatsControllerActionAsCakeHandler(): void
     {
         $watcher = new RequestWatcher(['enabled' => true]);
         $request = new ServerRequest([
@@ -318,7 +318,33 @@ class RequestWatchersTest extends TestCaseBase
         $watcher->record($request, $response, microtime(true));
 
         $this->assertSame(
-            'TestApp\Controller\ProjectsController::byUsers',
+            'Projects:byUsers',
+            $this->loadSpeculumEntries()[0]->content['controller_action'],
+        );
+    }
+
+    /**
+     * @return void
+     */
+    public function testRequestWatcherFormatsPluginPrefixDashedController(): void
+    {
+        $watcher = new RequestWatcher(['enabled' => true]);
+        $request = new ServerRequest([
+            'url' => '/admin/blog/post-tags/view/1',
+            'environment' => ['REQUEST_METHOD' => 'GET'],
+            'params' => [
+                'controller' => 'post-tags',
+                'action' => 'view',
+                'plugin' => 'Blog',
+                'prefix' => 'Admin',
+            ],
+        ]);
+        $response = (new Response())->withStatus(200)->withStringBody('ok');
+
+        $watcher->record($request, $response, microtime(true));
+
+        $this->assertSame(
+            'Admin:Blog.PostTags:view',
             $this->loadSpeculumEntries()[0]->content['controller_action'],
         );
     }
@@ -338,7 +364,7 @@ class RequestWatchersTest extends TestCaseBase
         ]);
 
         $spec = new ServerRequest([
-            'url' => '/telescope/x',
+            'url' => '/speculum/x',
             'environment' => ['REQUEST_METHOD' => 'GET'],
             'params' => [
                 'plugin' => 'Crustum/Speculum',

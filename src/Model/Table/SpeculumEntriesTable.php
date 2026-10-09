@@ -45,13 +45,28 @@ class SpeculumEntriesTable extends Table
     /**
      * Find a single entry by UUID, optionally containing tags.
      *
-     * @param string $uuid Entry UUID.
+     * Short hexadecimal prefixes (with or without dashes) resolve to the latest
+     * matching entry. Prefixes compare as UUID ranges (`>=` / `<=`) rather than
+     * `LIKE` so native UUID columns (Postgres) keep working.
+     *
+     * @param string $uuid Entry UUID or short hexadecimal prefix.
      * @param bool $withTags Whether to contain tag rows.
      * @return \Crustum\Speculum\Model\Entity\SpeculumEntry|null
      */
     public function findByUuid(string $uuid, bool $withTags = true): ?SpeculumEntry
     {
-        $query = $this->find()->where([$this->aliasField('uuid') => $uuid]);
+        $range = static::uuidPrefixRange($uuid);
+        if ($range !== null) {
+            $query = $this->find()
+                ->where([
+                    $this->aliasField('uuid') . ' >=' => $range[0],
+                    $this->aliasField('uuid') . ' <=' => $range[1],
+                ])
+                ->orderByDesc($this->aliasField('sequence'));
+        } else {
+            $query = $this->find()->where([$this->aliasField('uuid') => $uuid]);
+        }
+
         if ($withTags) {
             $query->contain(['SpeculumEntriesTags']);
         }
@@ -60,6 +75,76 @@ class SpeculumEntriesTable extends Table
         $entry = $query->first();
 
         return $entry;
+    }
+
+    /**
+     * Build an inclusive UUID range for a short hexadecimal prefix.
+     *
+     * @param string $uuid Raw UUID input.
+     * @return array{string, string}|null Lower and upper bound, or null for exact match.
+     */
+    protected static function uuidPrefixRange(string $uuid): ?array
+    {
+        if (strlen($uuid) >= 36) {
+            return null;
+        }
+
+        $hex = strtolower(str_replace('-', '', $uuid));
+        if ($hex === '' || strlen($hex) > 32 || !ctype_xdigit($hex)) {
+            return null;
+        }
+
+        $low = static::dashUuid($hex . str_repeat('0', 32 - strlen($hex)));
+        $high = static::dashUuid($hex . str_repeat('f', 32 - strlen($hex)));
+
+        return [$low, $high];
+    }
+
+    /**
+     * Insert dashes into a 32-character hexadecimal string (8-4-4-4-12).
+     *
+     * @param string $hex Hexadecimal string.
+     * @return string
+     */
+    protected static function dashUuid(string $hex): string
+    {
+        return substr($hex, 0, 8) . '-'
+            . substr($hex, 8, 4) . '-'
+            . substr($hex, 12, 4) . '-'
+            . substr($hex, 16, 4) . '-'
+            . substr($hex, 20);
+    }
+
+    /**
+     * Find distinct batch IDs matching a short hexadecimal prefix.
+     *
+     * Dedicated lookup for short `--batch` filters; generic finders keep
+     * exact matching so API semantics never change.
+     *
+     * @param string $prefix Raw batch UUID prefix.
+     * @return list<string>
+     */
+    public function findBatchIdsByPrefix(string $prefix): array
+    {
+        $range = static::uuidPrefixRange($prefix);
+        if ($range === null) {
+            return [];
+        }
+
+        /** @var list<array{batch_id: string}> $rows */
+        $rows = $this->find()
+            ->select([$this->aliasField('batch_id')])
+            ->distinct()
+            ->where([
+                $this->aliasField('batch_id') . ' >=' => $range[0],
+                $this->aliasField('batch_id') . ' <=' => $range[1],
+            ])
+            ->orderByAsc($this->aliasField('batch_id'))
+            ->disableHydration()
+            ->all()
+            ->toList();
+
+        return array_values(array_unique(array_column($rows, 'batch_id')));
     }
 
     /**
@@ -99,8 +184,12 @@ class SpeculumEntriesTable extends Table
             $query->where([$this->aliasField('type') => $entryType]);
         }
 
-        if ($opts->batchId) {
-            $query->where([$this->aliasField('batch_id') => $opts->batchId]);
+        if (!in_array($opts->batchId, [null, '', []], true)) {
+            if (is_array($opts->batchId)) {
+                $query->where([$this->aliasField('batch_id') . ' IN' => $opts->batchId]);
+            } else {
+                $query->where([$this->aliasField('batch_id') => $opts->batchId]);
+            }
         }
 
         if ($opts->familyHash) {
@@ -171,6 +260,42 @@ class SpeculumEntriesTable extends Table
         }
 
         return $query;
+    }
+
+    /**
+     * Find batch context entries in chronological order (oldest first).
+     *
+     * Unlike `find('filtered', ...)`, this finder applies no display filter, no
+     * pagination, and no limit: callers get the whole batch for inspection.
+     *
+     * @param \Cake\ORM\Query\SelectQuery<\Crustum\Speculum\Model\Entity\SpeculumEntry> $query Query.
+     * @param list<string>|string|null $batchId Batch UUID filter.
+     * @param list<string>|string|null $type Entry type filter.
+     * @return \Cake\ORM\Query\SelectQuery<\Crustum\Speculum\Model\Entity\SpeculumEntry>
+     */
+    public function findBatchContext(
+        SelectQuery $query,
+        string|array|null $batchId = null,
+        string|array|null $type = null,
+    ): SelectQuery {
+        if (!in_array($batchId, [null, '', []], true)) {
+            if (is_array($batchId)) {
+                $query->where([$this->aliasField('batch_id') . ' IN' => $batchId]);
+            } else {
+                $query->where([$this->aliasField('batch_id') => $batchId]);
+            }
+        }
+
+        if (is_array($type)) {
+            $types = array_values(array_filter($type, static fn(string $item): bool => $item !== ''));
+            if ($types !== []) {
+                $query->where([$this->aliasField('type') . ' IN' => $types]);
+            }
+        } elseif ($type !== null && $type !== '') {
+            $query->where([$this->aliasField('type') => $type]);
+        }
+
+        return $query->orderByAsc($this->aliasField('sequence'));
     }
 
     /**

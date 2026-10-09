@@ -20,6 +20,7 @@ import events from './screens/events/index.vue';
 import eventsPreview from './screens/events/preview.vue';
 import ai from './screens/ai/index.vue';
 import aiPreview from './screens/ai/preview.vue';
+import aiInvocation from './screens/ai/invocation.vue';
 import cache from './screens/cache/index.vue';
 import cachePreview from './screens/cache/preview.vue';
 import queries from './screens/queries/index.vue';
@@ -77,6 +78,7 @@ export default [
     { path: '/events/:id', name: 'event-preview', component: eventsPreview },
     { path: '/events', name: 'events', component: events },
     { path: '/ai/:id', name: 'ai-preview', component: aiPreview },
+    { path: '/ai-invocation/:id', name: 'ai-invocation', component: aiInvocation },
     { path: '/ai', name: 'ai', component: ai },
     { path: '/cache/:id', name: 'cache-preview', component: cachePreview },
     { path: '/cache', name: 'cache', component: cache },

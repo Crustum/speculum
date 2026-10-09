@@ -157,14 +157,15 @@ class SensitiveData
      *
      * @param mixed $payload Payload.
      * @param list<string>|null $patterns Parameter patterns.
+     * @param list<string> $excludeKeys Leaf keys whose whole subtree is left untouched.
      * @return mixed
      */
-    public static function payload(mixed $payload, ?array $patterns = null): mixed
+    public static function payload(mixed $payload, ?array $patterns = null, array $excludeKeys = []): mixed
     {
         if (is_string($payload)) {
             $decoded = json_decode($payload, true);
             if (is_array($decoded)) {
-                $sanitized = static::parameters($decoded, $patterns);
+                $sanitized = static::parameters($decoded, $patterns, $excludeKeys);
 
                 return json_encode($sanitized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: $payload;
             }
@@ -173,7 +174,7 @@ class SensitiveData
         }
 
         if (is_array($payload)) {
-            return static::parameters($payload, $patterns);
+            return static::parameters($payload, $patterns, $excludeKeys);
         }
 
         return $payload;

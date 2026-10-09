@@ -153,7 +153,7 @@ class HttpClientWatcher extends Watcher
         Speculum::recordUpdate($this->makeDurationUpdate(
             $uuid,
             EntryType::HttpClient,
-            ['response' => SensitiveData::payload($this->formatResponseBody($response))],
+            ['response' => SensitiveData::payload($this->formatResponseBody($response), null, ['usage'])],
             $duration,
         ));
     }
@@ -180,12 +180,12 @@ class HttpClientWatcher extends Watcher
             'method' => strtoupper($request->getMethod()),
             'uri' => $uri,
             'headers' => SensitiveData::headers($this->flattenHeaders($request->getHeaders())),
-            'payload' => SensitiveData::payload($this->extractRequestPayload($request)),
+            'payload' => SensitiveData::payload($this->extractRequestPayload($request), null, ['usage']),
             'response_status' => $response?->getStatusCode(),
             'response_headers' => $response instanceof Response
                 ? SensitiveData::headers($this->flattenHeaders($response->getHeaders()))
                 : [],
-            'response' => SensitiveData::payload($this->formatResponseBody($response)),
+            'response' => SensitiveData::payload($this->formatResponseBody($response), null, ['usage']),
             'duration' => $duration,
         ];
 
@@ -246,12 +246,12 @@ class HttpClientWatcher extends Watcher
             'method' => strtoupper($method),
             'uri' => $uri,
             'headers' => SensitiveData::headers($headers),
-            'payload' => SensitiveData::payload($payload),
+            'payload' => SensitiveData::payload($payload, null, ['usage']),
             'response_status' => $status,
             'response_headers' => SensitiveData::headers(
                 is_array($responseHeaders) ? $responseHeaders : [],
             ),
-            'response' => SensitiveData::payload($responseBody),
+            'response' => SensitiveData::payload($responseBody, null, ['usage']),
             'duration' => $duration,
         ]);
         if (is_string($host) && $host !== '') {

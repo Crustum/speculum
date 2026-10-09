@@ -63,4 +63,14 @@ enum EntryType: string
     case VarDump = 'vardump';
 
     case View = 'view';
+
+    /**
+     * Return all entry type values.
+     *
+     * @return list<string>
+     */
+    public static function all(): array
+    {
+        return array_map(static fn(self $case): string => $case->value, self::cases());
+    }
 }

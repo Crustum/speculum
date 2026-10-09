@@ -3,11 +3,9 @@ declare(strict_types=1);
 
 namespace Crustum\Speculum\Watcher;
 
-use Cake\Core\App;
-use Cake\Core\Configure;
-use Cake\Core\Plugin;
 use Cake\Http\Response;
 use Cake\Http\ServerRequest;
+use Cake\Utility\Inflector;
 use Crustum\Speculum\Entry\IncomingEntry;
 use Crustum\Speculum\Enum\EntryType;
 use Crustum\Speculum\Resolver\PolicyResolver;
@@ -15,7 +13,6 @@ use Crustum\Speculum\Sanitizer\SensitiveData;
 use Crustum\Speculum\Speculum;
 use Crustum\Speculum\Watcher\Trait\RouteIgnoreTrait;
 use Throwable;
-use function Cake\Core\pluginSplit;
 
 /**
  * Records completed HTTP requests.
@@ -90,7 +87,10 @@ class RequestWatcher extends Watcher
     }
 
     /**
-     * Build a PHP-style controller action string (FQCN::action).
+     * Build the Cake route handler string (`prefix:Plugin.Controller:action`).
+     *
+     * Same shape `bin/cake routes` prints: single colon, no `Controller`
+     * suffix, dashed segments camelised.
      *
      * @param array<string, mixed> $params Routing params.
      * @return string|null
@@ -103,63 +103,20 @@ class RequestWatcher extends Watcher
             return null;
         }
 
-        return $this->resolveControllerClass($params, $controller) . '::' . $action;
-    }
-
-    /**
-     * Resolve the controller FQCN from routing params.
-     *
-     * @param array<string, mixed> $params Routing params.
-     * @param string $controller Short controller name.
-     * @return string
-     */
-    protected function resolveControllerClass(array $params, string $controller): string
-    {
-        $name = $controller;
+        $parts = [];
         $prefix = $params['prefix'] ?? null;
         if (is_string($prefix) && $prefix !== '') {
-            $name = str_replace(['\\', '.'], '/', $prefix) . '/' . $name;
+            $parts[] = $prefix . ':';
         }
 
         $plugin = $params['plugin'] ?? null;
-        $lookup = is_string($plugin) && $plugin !== ''
-            ? $plugin . '.' . $name
-            : $name;
-
-        $resolved = App::className($lookup, 'Controller', 'Controller');
-        if ($resolved !== null) {
-            return $resolved;
+        if (is_string($plugin) && $plugin !== '') {
+            $parts[] = $plugin . '.';
         }
 
-        return $this->synthesizeControllerClass($lookup);
-    }
+        $parts[] = Inflector::camelize(str_replace('-', '_', $controller)) . ':' . $action;
 
-    /**
-     * Build a controller FQCN when the class is not loaded yet.
-     *
-     * @param string $lookup Plugin-split controller path (e.g. Admin/Users).
-     * @return string
-     */
-    protected function synthesizeControllerClass(string $lookup): string
-    {
-        [$plugin, $name] = pluginSplit($lookup);
-        $relative = 'Controller\\' . str_replace('/', '\\', (string)$name) . 'Controller';
-
-        if ($plugin) {
-            if (Plugin::isLoaded($plugin)) {
-                $pluginClass = Plugin::getCollection()->get($plugin)::class;
-                $base = substr($pluginClass, 0, (int)strrpos($pluginClass, '\\'));
-            } else {
-                $base = str_replace('/', '\\', $plugin);
-            }
-
-            return $base . '\\' . $relative;
-        }
-
-        $base = (string)Configure::read('App.namespace', 'App');
-        $base = str_replace('/', '\\', rtrim($base, '\\'));
-
-        return $base . '\\' . $relative;
+        return implode('', $parts);
     }
 
     /**

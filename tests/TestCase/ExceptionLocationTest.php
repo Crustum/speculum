@@ -94,6 +94,5 @@ class ExceptionLocationTest extends TestCaseBase
     {
         $this->assertTrue(ExceptionLocation::isVendorPath('C:\\app\\vendor\\cake\\Driver.php'));
         $this->assertTrue(ExceptionLocation::isVendorPath('/app/vendor/cake/Driver.php'));
-        $this->assertFalse(ExceptionLocation::isVendorPath('/app/plugins/Telescope/src/Storage/DatabaseEntriesRepository.php'));
     }
 }

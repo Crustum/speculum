@@ -17,11 +17,11 @@ class EntryQueryOptions
     public const UNLIMITED = -1;
 
     /**
-     * Filter by batch id.
+     * Filter by batch id (list expands to IN matching).
      *
-     * @var string|null
+     * @var list<string>|string|null
      */
-    public ?string $batchId = null;
+    public string|array|null $batchId = null;
 
     /**
      * Filter by entry tag (comma-separated values supported by callers).
@@ -182,10 +182,10 @@ class EntryQueryOptions
     /**
      * Set the batch identifier filter.
      *
-     * @param string|null $batchId Batch UUID.
+     * @param list<string>|string|null $batchId Batch UUID or expanded prefix matches.
      * @return $this
      */
-    public function batchId(?string $batchId): static
+    public function batchId(string|array|null $batchId): static
     {
         $this->batchId = $batchId;
 

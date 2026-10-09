@@ -8,6 +8,7 @@ use Cake\Core\Configure;
 use Cake\Core\Plugin;
 use Cake\Queue\QueueManager;
 use Crustum\Queue\Event\JobPushedEvent;
+use Crustum\Speculum\Entry\Routing\EntryTypeMap;
 use Crustum\Speculum\Enum\EntryType;
 use Crustum\Speculum\Enum\SoftFeature;
 use Crustum\Speculum\Watcher\AiWatcher;
@@ -395,6 +396,7 @@ final class WatcherRegistry
         };
 
         self::$entryResources[$path] = new EntryResource($path, $mergedType, $watcherClass, $mergedSoft);
+        EntryTypeMap::register($path, $mergedType);
     }
 
     /**
@@ -514,6 +516,7 @@ final class WatcherRegistry
     {
         foreach (array_keys(self::$extensionPanels) as $navKey) {
             unset(self::$entryResources[$navKey]);
+            EntryTypeMap::unregister($navKey);
         }
 
         self::$extensionPanels = [];
@@ -529,6 +532,7 @@ final class WatcherRegistry
     {
         self::$entryResources = [];
         self::$defaultEntryResourcesRegistered = false;
+        EntryTypeMap::clear();
     }
 
     /**

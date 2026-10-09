@@ -143,6 +143,14 @@ class DatabaseEntriesRepository implements
     /**
      * @inheritDoc
      */
+    public function batchIdsByPrefix(string $prefix): array
+    {
+        return $this->entries->findBatchIdsByPrefix($prefix);
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function store(array $entries): void
     {
         if ($entries === []) {

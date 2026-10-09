@@ -1,12 +1,14 @@
 <script setup>
-import { nextTick, onMounted, ref } from 'vue';
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import api from '@/utils/api';
+import { useAbortablePolling } from '@/composables/useAbortablePolling';
 import { useAlert } from '@/composables/useAlert';
 import { useHelpers } from '@/composables/useHelpers';
 import { hideCssModal, showCssModal } from '@/utils/cssModal';
 
 const { truncate } = useHelpers();
 const { alertConfirm } = useAlert();
+const { abortRequests, signal } = useAbortablePolling();
 
 const tags = ref([]);
 const ready = ref(false);
@@ -45,8 +47,14 @@ function cancelNewTag() {
 onMounted(() => {
     document.title = 'Monitoring - Speculum';
 
-    api.get('/monitored-tags')
+    const activeSignal = signal();
+
+    api.get('/monitored-tags', { signal: activeSignal })
         .then((response) => {
+            if (activeSignal.aborted) {
+                return;
+            }
+
             tags.value = response.data.tags || [];
             ready.value = true;
         })
@@ -54,6 +62,10 @@ onMounted(() => {
             tags.value = [];
             ready.value = true;
         });
+});
+
+onBeforeUnmount(() => {
+    abortRequests();
 });
 </script>
 

@@ -62,6 +62,16 @@ class ConsoleCommandApprovalTest extends TestCaseBase
     /**
      * @return void
      */
+    public function testIgnoresSpeculumListCommand(): void
+    {
+        $_SERVER['argv'] = ['bin/cake.php', 'speculum', 'list'];
+
+        $this->assertFalse($this->isApproved());
+    }
+
+    /**
+     * @return void
+     */
     public function testAllowsAppCommands(): void
     {
         $_SERVER['argv'] = ['bin/cake.php', 'app', 'demo'];

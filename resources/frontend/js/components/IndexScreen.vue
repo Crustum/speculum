@@ -3,6 +3,7 @@ import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { useRoute, useRouter } from 'vue-router';
 import api from '../utils/api';
+import { useAbortablePolling } from '../composables/useAbortablePolling';
 import { useHelpers } from '../composables/useHelpers';
 import { useTimeAgo } from '../composables/useTimeAgo';
 
@@ -18,6 +19,7 @@ const route = useRoute();
 const router = useRouter();
 const { debouncer } = useHelpers();
 const { timeAgo } = useTimeAgo();
+const { abortRequests, resetRequests, signal, mayRetry } = useAbortablePolling();
 const autoLoadsNewEntries = inject('autoLoadsNewEntries', ref(false));
 
 const tag = ref('');
@@ -82,14 +84,22 @@ function entriesQuery(params = {}) {
 }
 
 function loadEntries(after) {
+    const activeSignal = signal();
+
     return api
         .post(
             `/${props.resource}?${entriesQuery({
                 before: lastEntryIndex.value,
                 beforeDuration: lastEntryDuration.value,
-            })}`
+            })}`,
+            undefined,
+            { signal: activeSignal }
         )
         .then((response) => {
+            if (activeSignal.aborted) {
+                return;
+            }
+
             loadError.value = false;
             const list = response.data.entries || [];
 
@@ -106,15 +116,26 @@ function loadEntries(after) {
                 after(familyHash.value || props.showAllFamily ? list : uniqueByFamily(list));
             }
         })
-        .catch(() => {
-            loadError.value = true;
-            hasMoreEntries.value = false;
-            loadingNewEntries.value = false;
-            loadingMoreEntries.value = false;
-
-            if (typeof after === 'function') {
-                after([]);
+        .catch((error) => {
+            if (activeSignal.aborted) {
+                return;
             }
+
+            if (!mayRetry(error, activeSignal)) {
+                loadError.value = true;
+                hasMoreEntries.value = false;
+                loadingNewEntries.value = false;
+                loadingMoreEntries.value = false;
+
+                if (typeof after === 'function') {
+                    after([]);
+                }
+
+                return;
+            }
+
+            checkForNewEntries();
+            updateEntries();
         });
 }
 
@@ -123,13 +144,19 @@ function checkForNewEntries() {
         return;
     }
 
+    const activeSignal = signal();
+
+    clearTimeout(newEntriesTimeout);
+
     newEntriesTimeout = setTimeout(() => {
         api
             .post(
-                `/${props.resource}?${entriesQuery({ take: 1 })}`
+                `/${props.resource}?${entriesQuery({ take: 1 })}`,
+                undefined,
+                { signal: activeSignal }
             )
             .then((response) => {
-                if (destroyed.value) {
+                if (activeSignal.aborted) {
                     return;
                 }
 
@@ -148,8 +175,8 @@ function checkForNewEntries() {
                     checkForNewEntries();
                 }
             })
-            .catch(() => {
-                if (!destroyed.value) {
+            .catch((error) => {
+                if (mayRetry(error, activeSignal)) {
                     checkForNewEntries();
                 }
             });
@@ -195,7 +222,7 @@ function applyTagFilter(nextTag) {
         delete query.tag;
     }
 
-    router.push({ query });
+    router.push({ query }).catch(() => {});
 }
 
 function applyDurationSort(enabled) {
@@ -210,7 +237,7 @@ function applyDurationSort(enabled) {
         delete query.order_by;
     }
 
-    router.push({ query });
+    router.push({ query }).catch(() => {});
 }
 
 function search() {
@@ -253,30 +280,46 @@ function updateEntries() {
         return;
     }
 
+    const activeSignal = signal();
+
+    clearTimeout(updateEntriesTimeout);
+
     updateEntriesTimeout = setTimeout(() => {
         const uuids = entries.value
             .filter((entry) => entry.content?.status === 'pending')
             .map((entry) => entry.id);
 
 
-        if (uuids.length) {
-            api.post(`/${props.resource}`, { uuids })
-                .then((response) => {
-                    recordingStatus.value = response.data.status;
-                    const refreshed = response.data.entries || [];
+        if (!uuids.length) {
+            updateEntries();
 
-                    entries.value = entries.value.map((entry) => {
-                        if (!uuids.includes(entry.id)) {
-                            return entry;
-                        }
-
-                        return refreshed.find((item) => item.id === entry.id) || entry;
-                    });
-                })
-                .catch(() => {});
+            return;
         }
 
-        updateEntries();
+        api.post(`/${props.resource}`, { uuids }, { signal: activeSignal })
+            .then((response) => {
+                if (activeSignal.aborted) {
+                    return;
+                }
+
+                recordingStatus.value = response.data.status;
+                const refreshed = response.data.entries || [];
+
+                entries.value = entries.value.map((entry) => {
+                    if (!uuids.includes(entry.id)) {
+                        return entry;
+                    }
+
+                    return refreshed.find((item) => item.id === entry.id) || entry;
+                });
+
+                updateEntries();
+            })
+            .catch((error) => {
+                if (mayRetry(error, activeSignal)) {
+                    updateEntries();
+                }
+            });
     }, updateEntriesTimer);
 }
 
@@ -312,20 +355,18 @@ function bootstrap() {
 watch(
     () => route.query,
     () => {
+        resetRequests();
         clearTimeout(newEntriesTimeout);
+        clearTimeout(updateEntriesTimeout);
+
         hasNewEntries.value = false;
         lastEntryIndex.value = '';
         lastEntryDuration.value = null;
+        loadingNewEntries.value = false;
+        loadingMoreEntries.value = false;
 
-        if (!route.query.family_hash) {
-            familyHash.value = '';
-        }
-
-        if (!route.query.tag) {
-            tag.value = '';
-        } else {
-            tag.value = String(route.query.tag);
-        }
+        familyHash.value = route.query.family_hash || '';
+        tag.value = route.query.tag ? String(route.query.tag) : '';
 
         orderBy.value = route.query.order_by === 'duration' ? 'duration' : 'sequence';
 
@@ -335,6 +376,7 @@ watch(
         loadEntries((list) => {
             entries.value = list;
             checkForNewEntries();
+            updateEntries();
             ready.value = true;
         });
     }
@@ -343,6 +385,7 @@ watch(
 onMounted(bootstrap);
 
 onBeforeUnmount(() => {
+    abortRequests();
     destroyed.value = true;
     clearTimeout(newEntriesTimeout);
     clearTimeout(updateEntriesTimeout);

@@ -236,6 +236,24 @@ See [Authorization](#authorization) for the full middleware setup. Who may open 
 
 `Speculum::auth($user)` is unrelated: it attaches the current identity to **recorded entries** (tags like `Auth:{id}` and the Authenticated User card), not dashboard login.
 
+<a name="content-security-policy"></a>
+### Content Security Policy
+
+CSP headers are owned by the host application. To make the `/speculum` dashboard pass a nonce-based policy, forward the request nonce — Speculum echoes it on its own tags (two inline `<style>`, the inline `window.Speculum` script, and the external module script, which matters under `strict-dynamic`). Speculum never generates nonces.
+
+Primary path (worker-safe, per-request): set the `cspNonce` request attribute in host middleware, next to the header:
+
+```php
+$nonce = base64_encode(random_bytes(16));
+$response = $response->withHeader(
+    'Content-Security-Policy',
+    "script-src 'nonce-{$nonce}'; style-src 'nonce-{$nonce}'"
+);
+$request = $request->withAttribute('cspNonce', $nonce);
+```
+
+Fallback: `Speculum::cspNonce($nonce)`. Loses to the request attribute when both are present. In long-lived runtimes (RoadRunner, FrankenPHP, Swoole) call it on every request — a boot-time value is not a real nonce.
+
 <a name="filtering"></a>
 ## Filtering
 
@@ -1034,6 +1052,25 @@ bin/cake speculum mcp
 ```
 
 This delegates to `bin/cake mcp start cake-speculum`. Use Ignis MCP for schema, routes, config, and tinker — not Speculum.
+
+<a name="console-inspection"></a>
+## Console inspection
+
+Without opening the dashboard, `bin/cake speculum list` and `bin/cake speculum show` read the same entry store from the terminal. Every request, job, and command is recorded as a **batch**: the entry itself plus every query, cache operation, log, event, exception, and view it produced.
+
+```bash
+# Find the entry: list requests (or exception, job, query, cache) and copy its UUID
+bin/cake speculum list request
+
+# Show the batch: entry detail plus Queries, Exceptions, Cache, and Logs sections
+bin/cake speculum show <uuid>
+
+# Most recent entry overall, or of one type
+bin/cake speculum show latest
+bin/cake speculum show latest:exception
+```
+
+Short UUID prefixes work wherever a UUID is accepted (`show 2f40a1c6` resolves to the latest match). Both commands accept `--json`: `list --json` prints an array of entries, `show --json` prints `{"entry": {...}, "batch": [...]}` with the batch in chronological order. `show <id> --type=query,exception` limits batch context to those types; `show <id> --full` disables truncation of table output (`--json` is never truncated). `list` filters with `--tag`, `--batch`, `--family`, and `--before` (pagination cursor from the footer); `--limit` caps the rows. Neither command records entries while it runs.
 
 <a name="custom-plugins-and-panels"></a>
 ## Custom Plugins and Panels

@@ -29,6 +29,14 @@ interface EntriesRepository
     public function get(string|array|null $type, EntryQueryOptions $options): array;
 
     /**
+     * Return distinct batch IDs matching a short hexadecimal prefix.
+     *
+     * @param string $prefix Raw batch UUID prefix.
+     * @return list<string>
+     */
+    public function batchIdsByPrefix(string $prefix): array;
+
+    /**
      * Store the given entries.
      *
      * @param list<\Crustum\Speculum\Entry\IncomingEntry> $entries Entries to store.

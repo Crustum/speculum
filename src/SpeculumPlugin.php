@@ -11,22 +11,27 @@ use Cake\Core\ContainerInterface;
 use Cake\Core\PluginApplicationInterface;
 use Cake\Error\Middleware\ErrorHandlerMiddleware;
 use Cake\Http\MiddlewareQueue;
+use Cake\Routing\Middleware\RoutingMiddleware;
 use Crustum\PluginManifest\Manifest\ManifestInterface;
 use Crustum\PluginManifest\Manifest\ManifestTrait;
 use Crustum\PluginManifest\Manifest\Tag;
 use Crustum\Speculum\Command\ClearCommand;
+use Crustum\Speculum\Command\ListCommand;
 use Crustum\Speculum\Command\McpCommand;
 use Crustum\Speculum\Command\PauseCommand;
 use Crustum\Speculum\Command\PruneCommand;
 use Crustum\Speculum\Command\ResumeCommand;
+use Crustum\Speculum\Command\ShowCommand;
 use Crustum\Speculum\Contract\ClearableRepository;
 use Crustum\Speculum\Contract\EntriesRepository;
 use Crustum\Speculum\Contract\PrunableRepository;
 use Crustum\Speculum\Mcp\SpeculumServer;
 use Crustum\Speculum\Middleware\SpeculumAuthorizationMiddleware;
 use Crustum\Speculum\Middleware\SpeculumRecordingMiddleware;
+use Crustum\Speculum\Middleware\SpeculumRequestCaptureMiddleware;
 use Crustum\Speculum\Registry\WatcherRegistry;
 use Crustum\Speculum\Storage\DatabaseEntriesRepository;
+use Crustum\Speculum\Watcher\RequestWatcher;
 use Override;
 use Throwable;
 
@@ -75,23 +80,20 @@ class SpeculumPlugin extends BasePlugin implements ManifestInterface
     {
         parent::bootstrap($app);
 
-        // Capture the earliest request start so recorded request durations span
-        // full app bootstrap (force: clears any value leaked from a prior request
-        // in a persistent php-cgi / FPM worker).
-        Speculum::markRequestStart(true);
-
-        // Also capture on the framework's earliest dispatch event as a backup hook
-        // (no-op if plugin bootstrap already stamped an earlier time this request).
-        $app->getEventManager()->on('Application.buildContainer', static function (): void {
-            Speculum::markRequestStart();
-        });
-
         if (!Configure::check('Speculum')) {
             if (file_exists(CONFIG . 'speculum.php')) {
                 Configure::load('speculum', 'default');
             } elseif (file_exists($this->getConfigPath() . 'speculum.php')) {
                 Configure::load('Crustum/Speculum.speculum', 'default', false);
             }
+        }
+
+        if (Configure::read('Speculum.early_timer_start', false)) {
+            Speculum::markRequestStart(true);
+
+            $app->getEventManager()->on('Application.buildContainer', static function (): void {
+                Speculum::markRequestStart();
+            });
         }
 
         if ((bool)Configure::read('Speculum.enabled', false)) {
@@ -138,34 +140,84 @@ class SpeculumPlugin extends BasePlugin implements ManifestInterface
     #[Override]
     public function middleware(MiddlewareQueue $middlewareQueue): MiddlewareQueue
     {
-        $recording = new SpeculumRecordingMiddleware();
         $authorizationDecorator = new SpeculumAuthorizationMiddleware();
 
         $requestAuthorizationClass = RequestAuthorizationMiddleware::class;
-        $errorHandlerClass = ErrorHandlerMiddleware::class;
 
         if (class_exists($requestAuthorizationClass)) {
             try {
                 $middlewareQueue->insertBefore($requestAuthorizationClass, $authorizationDecorator);
-                $middlewareQueue->insertBefore($requestAuthorizationClass, $recording);
-
-                return $middlewareQueue;
             } catch (Throwable) {
             }
         }
 
-        if (class_exists($errorHandlerClass)) {
+        if (!$this->isRequestWatcherDisabled()) {
+            return $this->pushRecordingMiddleware($middlewareQueue);
+        }
+
+        return $middlewareQueue;
+    }
+
+    /**
+     * Whether the request watcher is explicitly disabled via configuration.
+     *
+     * Missing configuration means enabled (default-on); only `false` or
+     * `['enabled' => false]` skips the recording middlewares.
+     *
+     * @return bool
+     */
+    protected function isRequestWatcherDisabled(): bool
+    {
+        $watcher = Configure::read('Speculum.watchers.' . RequestWatcher::class);
+
+        return $watcher === false || (is_array($watcher) && !($watcher['enabled'] ?? true));
+    }
+
+    /**
+     * Add the early recording and late capture middlewares to the queue.
+     *
+     * @param \Cake\Http\MiddlewareQueue $middlewareQueue Queue.
+     * @return \Cake\Http\MiddlewareQueue
+     */
+    protected function pushRecordingMiddleware(MiddlewareQueue $middlewareQueue): MiddlewareQueue
+    {
+        $recording = new SpeculumRecordingMiddleware();
+        $capture = new SpeculumRequestCaptureMiddleware();
+
+        $requestAuthorizationClass = RequestAuthorizationMiddleware::class;
+        $errorHandlerClass = ErrorHandlerMiddleware::class;
+        $placed = false;
+
+        if (class_exists($requestAuthorizationClass)) {
+            try {
+                $middlewareQueue->insertBefore($requestAuthorizationClass, $recording);
+                $placed = true;
+            } catch (Throwable) {
+            }
+        }
+
+        if (!$placed && class_exists($errorHandlerClass)) {
             try {
                 $middlewareQueue->insertBefore($errorHandlerClass, $recording);
+                $placed = true;
+            } catch (Throwable) {
+            }
+        }
+
+        if (!$placed) {
+            $middlewareQueue->add($recording);
+        }
+
+        if (class_exists(RoutingMiddleware::class)) {
+            try {
+                $middlewareQueue->insertAfter(RoutingMiddleware::class, $capture);
 
                 return $middlewareQueue;
             } catch (Throwable) {
             }
         }
 
-        $middlewareQueue->add($authorizationDecorator);
-
-        return $middlewareQueue->add($recording);
+        return $middlewareQueue->add($capture);
     }
 
     /**
@@ -175,6 +227,8 @@ class SpeculumPlugin extends BasePlugin implements ManifestInterface
     public function console(CommandCollection $commands): CommandCollection
     {
         $commands->add('speculum clear', ClearCommand::class);
+        $commands->add('speculum list', ListCommand::class);
+        $commands->add('speculum show', ShowCommand::class);
         $commands->add('speculum pause', PauseCommand::class);
         $commands->add('speculum resume', ResumeCommand::class);
         $commands->add('speculum prune', PruneCommand::class);

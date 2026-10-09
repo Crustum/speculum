@@ -1,7 +1,18 @@
 <script setup>
+import { aiCategory } from '@/utils/aiCategory';
+import { toolCallLine } from '@/utils/aiTool';
+
 defineProps({
     items: { type: Array, default: () => [] },
 });
+
+function subtitle(item) {
+    if (aiCategory(item) === 'tool') {
+        return toolCallLine(item);
+    }
+
+    return item?.content?.summary || null;
+}
 </script>
 
 <template>
@@ -32,6 +43,14 @@ defineProps({
                             />
                         </template>
                     </entry-title>
+                    <div
+                        v-if="subtitle(item)"
+                        class="small text-muted text-truncate"
+                        style="max-width: 320px;"
+                        :title="subtitle(item)"
+                    >
+                        {{ subtitle(item) }}
+                    </div>
                 </td>
                 <td>
                     <span class="badge badge-info text-uppercase">

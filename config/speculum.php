@@ -38,6 +38,7 @@ return [
         'enabled' => filter_var(env('SPECULUM_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
         'domain' => env('SPECULUM_DOMAIN', null),
         'path' => env('SPECULUM_PATH', 'speculum'),
+        'early_timer_start' => (int)env('SPECULUM_REQUEST_EARLY_TIMER_START', false),
         'driver' => env('SPECULUM_DRIVER', 'database'),
         'assets' => [
             'path' => env('SPECULUM_ASSETS_PATH', 'speculum'),
@@ -114,6 +115,9 @@ return [
             'debug_kit*',
             'monitor*',
             'rhythm*',
+            '_ignis/*',
+            'broadcasting/auth*',
+            'notification/notifications/unread.json',
         ],
         'ignore_commands' => [
             'migrations',
@@ -131,6 +135,7 @@ return [
             'cache',
             'cache clear',
             'cache clear_all',
+            'speculum',
         ],
         'watchers' => [
             AiWatcher::class => [

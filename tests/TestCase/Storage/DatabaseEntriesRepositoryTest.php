@@ -329,4 +329,72 @@ class DatabaseEntriesRepositoryTest extends TestCaseBase
         $foundExc = $this->repository->find($exc->uuid);
         $this->assertSame('message', $foundExc->content['message']);
     }
+
+    /**
+     * @return void
+     */
+    public function testFindEntryByShortUuidPrefix(): void
+    {
+        $entry = IncomingEntry::make([
+            'uri' => '/short',
+            'method' => 'GET',
+            'response_status' => 200,
+        ], 'abc12345-1111-4111-8111-111111111111')
+            ->type(EntryType::Request->value)
+            ->batchId(Text::uuid());
+        $entry->tags(['short-tag']);
+
+        $this->repository->store([$entry]);
+
+        $found = $this->repository->find('abc12345');
+
+        $this->assertSame('abc12345-1111-4111-8111-111111111111', $found->id);
+        $this->assertSame(['short-tag'], $found->jsonSerialize()['tags']);
+    }
+
+    /**
+     * @return void
+     */
+    public function testFindEntryByShortUuidPrefixReturnsLatest(): void
+    {
+        $old = IncomingEntry::make([
+            'uri' => '/old',
+            'method' => 'GET',
+            'response_status' => 200,
+        ], 'def56789-1111-4111-8111-111111111111')
+            ->type(EntryType::Request->value)
+            ->batchId(Text::uuid());
+        $new = IncomingEntry::make([
+            'uri' => '/new',
+            'method' => 'GET',
+            'response_status' => 200,
+        ], 'def56789-2222-4222-8222-222222222222')
+            ->type(EntryType::Request->value)
+            ->batchId(Text::uuid());
+        $this->repository->store([$old, $new]);
+
+        $found = $this->repository->find('def56789');
+
+        $this->assertSame('def56789-2222-4222-8222-222222222222', $found->id);
+        $this->assertSame('/new', $found->content['uri']);
+    }
+
+    /**
+     * @return void
+     */
+    public function testFindEntryByDashedShortPrefix(): void
+    {
+        $entry = IncomingEntry::make([
+            'uri' => '/dashed',
+            'method' => 'GET',
+            'response_status' => 200,
+        ], 'abc12345-1111-4111-8111-111111111111')
+            ->type(EntryType::Request->value)
+            ->batchId(Text::uuid());
+        $this->repository->store([$entry]);
+
+        $found = $this->repository->find('abc12345-1111');
+
+        $this->assertSame('abc12345-1111-4111-8111-111111111111', $found->id);
+    }
 }

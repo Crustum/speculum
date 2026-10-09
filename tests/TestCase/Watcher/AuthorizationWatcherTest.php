@@ -80,7 +80,7 @@ class AuthorizationWatcherTest extends TestCaseBase
     public function testIgnoreSkipsByPluginControllerAndAction(): void
     {
         $spec = new ServerRequest([
-            'url' => '/telescope/entry-resources/view/1',
+            'url' => '/speculum/entry-resources/view/1',
             'params' => [
                 'plugin' => 'Crustum/Speculum',
                 'controller' => 'EntryResources',
@@ -169,7 +169,7 @@ class AuthorizationWatcherTest extends TestCaseBase
         ]);
 
         $spec = new ServerRequest([
-            'url' => '/telescope/x',
+            'url' => '/speculum/x',
             'params' => [
                 'plugin' => 'Crustum/Speculum',
                 'controller' => 'EntryResources',

@@ -54,6 +54,43 @@ class HttpClientWatcherTest extends TestCaseBase
     /**
      * @return void
      */
+    public function testHttpClientWatcherKeepsUsageCountersUnredacted(): void
+    {
+        $watcher = new HttpClientWatcher(['enabled' => true]);
+        $watcher->record(
+            'POST',
+            'https://api.openai.com/v1/chat/completions',
+            ['Content-Type' => 'application/json'],
+            ['model' => 'gpt-4o', 'api_key' => 'secret-key'],
+            [
+                'status' => 200,
+                'headers' => ['content-type' => 'application/json'],
+                'body' => json_encode([
+                    'choices' => [['message' => ['content' => 'hi']]],
+                    'usage' => [
+                        'prompt_tokens' => 12,
+                        'completion_tokens' => 34,
+                        'total_tokens' => 46,
+                    ],
+                    'api_key' => 'secret-key',
+                ]),
+            ],
+            42,
+        );
+
+        $entries = $this->loadSpeculumEntries();
+        $entry = $entries[0];
+
+        $this->assertSame(12, $entry->content['response']['usage']['prompt_tokens']);
+        $this->assertSame(34, $entry->content['response']['usage']['completion_tokens']);
+        $this->assertSame(46, $entry->content['response']['usage']['total_tokens']);
+        $this->assertSame('(REDACTED)', $entry->content['response']['api_key']);
+        $this->assertSame('(REDACTED)', $entry->content['payload']['api_key']);
+    }
+
+    /**
+     * @return void
+     */
     public function testHttpClientWatcherReadsCakeAfterSendEvent(): void
     {
         $client = new Client();

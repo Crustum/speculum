@@ -1,39 +1,10 @@
 <script setup>
 import { computed } from 'vue';
+import { normalizeMessage } from '@/utils/aiTool';
 
 const props = defineProps({
     payload: { type: Object, required: true },
 });
-
-function roleValue(role) {
-    if (!role) {
-        return null;
-    }
-    if (typeof role === 'string') {
-        return role;
-    }
-    const propsObj = role.properties ?? role;
-
-    return propsObj.value ?? propsObj.name ?? role.name ?? null;
-}
-
-// Messages arrive as { class: UserMessage|AssistantMessage, properties: { role, content, toolCalls, toolResults } }.
-// Flatten to { role, content, toolCalls, toolResults } so the thread can render them uniformly.
-function normalizeMessage(msg) {
-    if (!msg || typeof msg !== 'object') {
-        return null;
-    }
-    const propsObj = msg.properties ?? msg;
-    const content = msg.content ?? propsObj.content ?? null;
-    const role = roleValue(msg.role ?? propsObj.role) ?? 'assistant';
-
-    return {
-        role,
-        content: typeof content === 'string' ? content : (content ? JSON.stringify(content) : ''),
-        toolCalls: propsObj.toolCalls ?? [],
-        toolResults: propsObj.toolResults ?? [],
-    };
-}
 
 const messages = computed(() => {
     const out = [];

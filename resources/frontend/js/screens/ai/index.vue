@@ -1,5 +1,14 @@
 <script setup>
 import { aiCategory } from '@/utils/aiCategory';
+import { toolCallLine } from '@/utils/aiTool';
+
+function summaryText(entry) {
+    if (aiCategory(entry) === 'tool') {
+        return toolCallLine(entry);
+    }
+
+    return entry?.content?.summary || '—';
+}
 </script>
 
 <template>
@@ -66,8 +75,9 @@ import { aiCategory } from '@/utils/aiCategory';
             <td
                 class="text-muted text-truncate"
                 style="max-width: 280px;"
+                :title="summaryText(slotProps.entry)"
             >
-                {{ slotProps.entry.content.summary || '—' }}
+                {{ summaryText(slotProps.entry) }}
             </td>
 
             <td class="table-fit text-end text-muted">

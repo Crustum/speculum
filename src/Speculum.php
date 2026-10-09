@@ -23,6 +23,8 @@ use Crustum\Speculum\Recording\WorkerFlushPolicy;
 use Crustum\Speculum\Registry\WatcherRegistry;
 use Crustum\Speculum\Sanitizer\SensitiveData;
 use Crustum\Speculum\Support\Avatar;
+use Crustum\Speculum\Watcher\ExceptionWatcher;
+use Crustum\Speculum\Watcher\RequestWatcher;
 use Crustum\Speculum\Watcher\VarDumpWatcher;
 use Exception;
 use Throwable;
@@ -93,6 +95,17 @@ class Speculum
      * @var string|null
      */
     public static ?string $recordingBatchId = null;
+
+    /**
+     * Whether the request entry for the current cycle was already recorded.
+     *
+     * The late capture middleware sets this when it records the routed request;
+     * the early middleware records a fallback entry only when it is still false
+     * (short-circuit before routing, e.g. auth redirect or inner exception).
+     *
+     * @var bool
+     */
+    public static bool $requestEntryRecorded = false;
 
     /**
      * Earliest known request start microtime, captured as early as possible
@@ -170,6 +183,16 @@ class Speculum
      * @var bool
      */
     public static bool $shouldRecord = false;
+
+    /**
+     * CSP nonce fallback echoed on dashboard style and script tags.
+     *
+     * Used only when the current request carries no `cspNonce` attribute;
+     * the attribute always wins because it is per-request fresh.
+     *
+     * @var string
+     */
+    public static string $cspNonce = '';
 
     /**
      * Active entries repository instance.
@@ -284,6 +307,74 @@ class Speculum
     }
 
     /**
+     * Reset per-request recording state for a new HTTP cycle.
+     *
+     * Called first by the early recording middleware on every request, so
+     * long-lived workers (RoadRunner, FrankenPHP, Swoole) never leak timers,
+     * queues, identities, or dedup guards into the next request. Short-lived
+     * runtimes are unaffected: everything reset here starts empty in a fresh
+     * process anyway.
+     *
+     * Only request-scoped state resets here. Registration-time guards (Mongo
+     * subscription, wrapped drivers, VarDump handler) are process-scoped by
+     * design — resetting them would silently disable those watchers after the
+     * first worker cycle, since registration runs once at boot.
+     *
+     * @return void
+     */
+    public static function beginRequest(): void
+    {
+        self::$requestStartedAt = microtime(true);
+        static::$shouldRecord = false;
+        static::$user = null;
+        static::$recordingBatchId = null;
+        static::$requestEntryRecorded = false;
+        static::quarantineStaleQueues();
+        ExceptionWatcher::resetRecorded();
+        WorkerFlushPolicy::reset();
+    }
+
+    /**
+     * Drop entries left over from a previous cycle instead of merging them
+     * into the next request batch.
+     *
+     * @return void
+     */
+    protected static function quarantineStaleQueues(): void
+    {
+        if (static::$entriesQueue === [] && static::$updatesQueue === []) {
+            return;
+        }
+
+        Log::warning('Speculum dropping stale entries from a previous request cycle.', [
+            'entries' => count(static::$entriesQueue),
+            'updates' => count(static::$updatesQueue),
+        ]);
+        static::$entriesQueue = [];
+        static::$updatesQueue = [];
+    }
+
+    /**
+     * Mark the current cycle request entry as recorded.
+     *
+     * @return void
+     */
+    public static function markRequestEntryRecorded(): void
+    {
+        static::$requestEntryRecorded = true;
+    }
+
+    /**
+     * Whether the current cycle request entry was already recorded.
+     *
+     * @return bool
+     */
+    public static function isRequestEntryRecorded(): bool
+    {
+        return static::$requestEntryRecorded;
+    }
+
+    /**
      * Bootstrap watchers and start recording when appropriate.
      *
      * @return void
@@ -306,7 +397,19 @@ class Speculum
             return;
         }
 
-        static::startRecording(false);
+        // HTTP: the early recording middleware owns the per-request boundary
+        // (beginRequest reset + startRecording). Starting here — at container
+        // build — would record bootstrap / middleware-queue construction
+        // activity (e.g. the AssetCompress config cache hit) that beginRequest()
+        // then has to drop as "stale entries from a previous request cycle" on
+        // every single request, on every SAPI. Defer the start to the
+        // middleware, which runs before anything request-scoped is recorded.
+        // Only start immediately when no recording middleware will run at all
+        // (RequestWatcher disabled): then there is no per-request boundary and
+        // the shutdown/terminate flush in StorageListener persists recording.
+        if (!WatcherRegistry::has(RequestWatcher::class)) {
+            static::startRecording(false);
+        }
     }
 
     /**
@@ -843,6 +946,23 @@ class Speculum
     public static function avatar(Closure $callback): static
     {
         Avatar::register($callback);
+
+        return new static();
+    }
+
+    /**
+     * Set the CSP nonce echoed on dashboard style and script tags.
+     *
+     * The value is escaped at render time. Prefer the per-request `cspNonce`
+     * request attribute — it wins over this static. In long-lived runtimes
+     * call this on every request; a boot-time value is not a real nonce.
+     *
+     * @param string $nonce CSP nonce value.
+     * @return static
+     */
+    public static function cspNonce(string $nonce): static
+    {
+        static::$cspNonce = $nonce;
 
         return new static();
     }

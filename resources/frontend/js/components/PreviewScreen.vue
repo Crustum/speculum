@@ -2,6 +2,7 @@
 import { computed, getCurrentInstance, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import api from '../utils/api';
+import { useAbortablePolling } from '../composables/useAbortablePolling';
 import { useTimeAgo } from '../composables/useTimeAgo';
 
 const props = defineProps({
@@ -14,6 +15,7 @@ const props = defineProps({
 const emit = defineEmits(['ready', 'update:entry', 'update:batch']);
 
 const { localTime, timeAgo } = useTimeAgo();
+const { abortRequests, resetRequests, signal, mayRetry } = useAbortablePolling();
 const instance = getCurrentInstance();
 
 const entry = ref(null);
@@ -51,15 +53,29 @@ const request = computed(() => (batch.value || []).find((item) => item.type === 
 const command = computed(() => (batch.value || []).find((item) => item.type === 'command'));
 
 function loadEntry(after) {
-    api
-        .get(`/${props.resource}/${props.id}`)
+    const activeSignal = signal();
+
+    return api
+        .get(`/${props.resource}/${props.id}`, { signal: activeSignal })
         .then((response) => {
+            if (activeSignal.aborted) {
+                return;
+            }
+
             if (typeof after === 'function') {
                 after(response);
             }
         })
-        .catch(() => {
+        .catch((error) => {
+            if (activeSignal.aborted) {
+                return;
+            }
+
             ready.value = true;
+
+            if (mayRetry(error, activeSignal)) {
+                updateEntry();
+            }
         });
 }
 
@@ -80,9 +96,9 @@ function updateEntry() {
             emit('update:entry', response.data.entry);
             emit('update:batch', response.data.batch);
             ready.value = true;
-        });
 
-        updateEntry();
+            updateEntry();
+        });
     }, updateEntryTimer);
 }
 
@@ -105,6 +121,7 @@ function prepareEntry() {
 watch(
     () => props.id,
     () => {
+        resetRequests();
         clearTimeout(updateEntryTimeout);
         prepareEntry();
     }
@@ -113,6 +130,7 @@ watch(
 onMounted(prepareEntry);
 
 onBeforeUnmount(() => {
+    abortRequests();
     clearTimeout(updateEntryTimeout);
 });
 </script>

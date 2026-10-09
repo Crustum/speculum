@@ -24,7 +24,7 @@ class CreateSpeculumEntries extends BaseMigration
             ->addColumn('family_hash', 'string', ['limit' => 255, 'null' => true, 'default' => null])
             ->addColumn('should_display_on_index', 'boolean', ['default' => true, 'null' => false])
             ->addColumn('type', 'string', ['limit' => 20, 'null' => false])
-            ->addColumn('content', 'text', ['null' => false])
+            ->addColumn('content', 'json', ['null' => false])
             ->addColumn('duration', 'integer', ['null' => true, 'default' => null])
             ->addColumn('created', 'datetime', ['null' => true, 'default' => null])
             ->addIndex(['uuid'], ['unique' => true])

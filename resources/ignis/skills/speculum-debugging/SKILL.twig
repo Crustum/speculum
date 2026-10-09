@@ -24,3 +24,16 @@ Prefer package `docs/index.md`. Start the server with `bin/cake speculum mcp` (o
 - Slow queries / failed jobs / client errors: `speculum_search` with `type=query|job|http_client` and inspect labels; open details with `speculum_entry`.
 
 Do **not** clear entries or toggle recording via MCP. Use Ignis for schema, routes, config, file logs, and tinker.
+
+## CLI inspection (no-MCP alternative)
+
+When MCP is unavailable, `bin/cake speculum list` and `bin/cake speculum show` read the same store from the terminal. Speculum records every request, job, and command as a **batch**: the entry itself and every query, cache operation, log, event, exception, and view it produced.
+
+1. **Find the entry.** Run `bin/cake speculum list request` (or `exception`, `job`, `query`, or `cache`). Choose the row by URI, class, or duration, then copy its UUID (8-char prefixes work too). Skip this step when you want the most recent entry.
+2. **Show the batch.** Run `bin/cake speculum show <uuid>`, or `bin/cake speculum show latest:request`. The output is the entry's own detail followed by Queries, Exceptions, Cache, and Logs sections, all from the same batch.
+3. **Diagnose from the flags.** In the Queries table, `DUP` marks queries with the same SQL pattern, which usually indicates an N+1. `SLOW` marks queries over the configured threshold. The Cache header shows hits, misses, and hit rate. An exception entry shows the message, code context, and stack trace.
+4. **Finish** when the finding identifies a file and line or a specific query, rather than only a symptom.
+
+Both commands accept `--json`. Prefer it to table output when you need exact values, want to filter results, or expect long output. `speculum list --json` prints an array of entries. `speculum show --json` prints `{"entry": {...}, "batch": [...]}`. Its `batch` array is in chronological order and already filtered by `--type`. When no entries match, `speculum list --json` prints `[]` rather than a message.
+
+Reference: `latest` and `latest:{type}` resolve to the most recent entry without a UUID lookup. `--json` disables truncation, so `--full` is only needed for table output. `speculum show <id> --type=query,exception` limits batch context to those types. `speculum list --tag=Auth:42` filters entries for one authenticated user. `--batch=<id>` lists every entry from one request. `--before=<sequence>` pages backward using the cursor printed in the footer. Run either command with `--help` for the full option list and valid entry types.

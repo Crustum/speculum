@@ -2,6 +2,15 @@
 declare(strict_types=1);
 
 use Crustum\Speculum\Frontend\Assets;
+use Crustum\Speculum\Speculum;
+
+$requestNonce = $this->request->getAttribute('cspNonce');
+$cspNonce = is_string($requestNonce) && $requestNonce !== '' ? $requestNonce : Speculum::$cspNonce;
+$nonceAttribute = $cspNonce !== '' ? ' nonce="' . h($cspNonce) . '"' : '';
+$scriptOptions = ['type' => 'module'];
+if ($cspNonce !== '') {
+    $scriptOptions['nonce'] = $cspNonce;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -16,11 +25,11 @@ use Crustum\Speculum\Frontend\Assets;
         <meta name="csrf-token" content="<?= h($csrfToken) ?>">
     <?php endif; ?>
     <title>Speculum</title>
-    <style>[v-cloak]{display:none}</style>
+    <style<?= $nonceAttribute ?>>[v-cloak]{display:none}</style>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:300,400,500,600" rel="stylesheet" />
     <?= $this->Html->css(Assets::cssUrls()) ?>
-    <style data-scheme="dark" media="max-width: 1px">
+    <style data-scheme="dark" media="max-width: 1px"<?= $nonceAttribute ?>>
 <?php
 $darkCssPath = Assets::diskFile(Assets::STYLES_DARK_CSS);
 if (is_file($darkCssPath)) {
@@ -28,7 +37,7 @@ if (is_file($darkCssPath)) {
 }
 ?>
     </style>
-    <script>
+    <script<?= $nonceAttribute ?>>
         window.Speculum = <?= json_encode($speculumScript ?? [
             'path' => $path ?? 'speculum',
             'timezone' => $timezone ?? 'UTC',
@@ -38,6 +47,6 @@ if (is_file($darkCssPath)) {
 </head>
 <body>
 <?= $this->fetch('content') ?>
-<?= $this->Html->script(Assets::jsUrl(), ['type' => 'module']) ?>
+<?= $this->Html->script(Assets::jsUrl(), $scriptOptions) ?>
 </body>
 </html>

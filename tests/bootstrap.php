@@ -96,6 +96,7 @@ Configure::write('Speculum', [
         'cache',
         'cache clear',
         'cache clear_all',
+        'speculum',
     ],
     'ignore_paths' => [
         'debug-kit*',

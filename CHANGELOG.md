@@ -22,13 +22,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   streaming responses (text/event-stream from AI agents)
 - Frontend: command formatter pane, command details tabs, base64/formatPhp
   utils, mongo query screens, AI + Authorization nav/routes
+- Frontend:  new AI Invocation Screen
+- AI Watcher & Middleware: improved SpeculumRecordingMiddleware and AiWatcher for better AI event tracking
 
 ### Fixed
 - Capture earliest request start (plugin bootstrap / `Application.buildContainer`) for accurate duration
 - Move `SpeculumRecordingMiddleware` before `ErrorHandlerMiddleware` to capture controller errors
 - Merge entry resources by path so renamed types both appear in the index
-
-
+- HTTP recording no longer starts at container build: `Speculum::start()`
+  deferred `startRecording()` to `SpeculumRecordingMiddleware` (which owns the
+  per-request `beginRequest()` boundary). Previously bootstrap /
+  middleware-queue construction activity (e.g. the AssetCompress config cache
+  hit) was recorded and then dropped as "stale entries from a previous request
+  cycle" on every request, on every SAPI.
 
 ## [1.0.0]
 

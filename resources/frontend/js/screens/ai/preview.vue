@@ -27,7 +27,7 @@ const panels = {
 const category = computed(() => aiCategory(props.entry));
 const categoryPanel = computed(() => panels[category.value] ?? null);
 
-const currentTab = ref('specific');
+const currentTab = ref('raw');
 </script>
 
 <template>
@@ -55,8 +55,15 @@ const currentTab = ref('specific');
             <attribute-row
                 v-if="slotProps.entry.content.invocationId"
                 title="Invocation ID"
-                :value="slotProps.entry.content.invocationId"
-            />
+            >
+                <router-link
+                    :to="{ name: 'ai-invocation', params: { id: slotProps.entry.content.invocationId } }"
+                    class="control-action"
+                    :title="'Show full invocation history'"
+                >
+                    {{ slotProps.entry.content.invocationId }}
+                </router-link>
+            </attribute-row>
 
             <attribute-row
                 v-if="slotProps.entry.content.provider"
@@ -108,20 +115,27 @@ const currentTab = ref('specific');
                     <li class="nav-item">
                         <a
                             class="nav-link"
-                            :class="{ active: currentTab === 'specific' }"
-                            href="#"
-                            @click.prevent="currentTab = 'specific'"
-                        >Extracted Data</a>
-                    </li>
-                    <li class="nav-item">
-                        <a
-                            class="nav-link"
                             :class="{ active: currentTab === 'raw' }"
                             href="#"
                             @click.prevent="currentTab = 'raw'"
                         >Raw</a>
                     </li>
+                    <li class="nav-item">
+                        <a
+                            class="nav-link"
+                            :class="{ active: currentTab === 'specific' }"
+                            href="#"
+                            @click.prevent="currentTab = 'specific'"
+                        >Extracted Data</a>
+                    </li>
                 </ul>
+
+                <div v-show="currentTab === 'raw'">
+                    <JsonCard
+                        title="Raw Event Data"
+                        :data="slotProps.entry.content.payload"
+                    />
+                </div>
 
                 <div v-show="currentTab === 'specific'">
                     <component
@@ -132,13 +146,6 @@ const currentTab = ref('specific');
                     <FailurePanel
                         v-if="slotProps.entry.content.failed"
                         :entry="slotProps.entry"
-                    />
-                </div>
-
-                <div v-show="currentTab === 'raw'">
-                    <JsonCard
-                        title="Raw Event Data"
-                        :data="slotProps.entry.content.payload"
                     />
                 </div>
             </div>

@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue';
+import { useRoute } from 'vue-router';
 import api from '@/utils/api';
 import { useAlert } from '@/composables/useAlert';
 import { useTimeAgo } from '@/composables/useTimeAgo';
@@ -7,6 +8,7 @@ import { formatFileLocation, editorHref } from '@/utils/projectPath';
 
 const { alertConfirm } = useAlert();
 const { localTime, timeAgo } = useTimeAgo();
+const route = useRoute();
 
 const currentTab = ref('message');
 
@@ -25,6 +27,10 @@ function markExceptionAsResolved(entryItem) {
         api.put('/exceptions/' + entryItem.id, {
             resolved_at: 'now',
         }).then((response) => {
+            if (route.params.id !== entryItem.id) {
+                return;
+            }
+
             const updated = response.data.entry;
             Object.assign(entryItem, updated);
         });
